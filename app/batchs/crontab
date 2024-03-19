@@ -1,0 +1,1 @@
+* * * * * /batchs/batch_script.sh >> /batchs/batch.log 2>&1
