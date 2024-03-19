@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+  fastapi:
+    build: .
+    ports:
+      - "8000:8000"
+  postgres:
+    image: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+
+  app:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - TZ=Europe/Paris  # Définir le fuseau horaire pour cron
+    volumes:
+      - ./batchs:/batchs  # Montage du répertoire batchs dans le conteneur
+      - ./app:/app
+
+    # Configuration du cron
+    command: sh -c "crontab /batchs/cronjob && python /app/main.py"
+
+  run_tests:
+    build: .
+    volumes:
+      - ./app:/app
+      - ./tests:/tests  # Montage du répertoire des tests dans le conteneur
+    environment:
+      - ENVIRONMENT=testing  # Définir l'environnement de test
+    command: pytest /tests  # Exécuter les tests unitaires une fois tous les conteneurs démarrés
+    depends_on:
+      - app  # Assurer que tous les services sont démarrés avant d'exécuter les tests unitaires
+
+volumes:
+  mongodb_data:
+  mongodb_test_data:
