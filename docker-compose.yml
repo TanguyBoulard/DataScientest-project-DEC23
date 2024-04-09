@@ -20,23 +20,26 @@ services:
       - ./postgres_data:/var/lib/postgresql/data
 
 
-  mongodb:
-    image: mongo
+  mongo:
     container_name: ${MG_CONTAINER_NAME}
+    image: mongo
+    restart: always
     ports:
-      - "27017:27017"
+      - 27017:27017
     volumes:
       - ./mongodb_data:/data/db
-
-  postgres_test:
-    image: postgres
-    container_name: ${TEST_PG_CONTAINER_NAME}
+  mongo-express:
+    container_name: ${MG_EXPRESS_CONTAINER_NAME}
+    image: mongo-express
+    depends_on:
+      - mongo
+    restart: always
+    ports:
+      - 8081:8081
     environment:
-      POSTGRES_DB: ${TEST_POSTGRES_DB}
-      POSTGRES_USER: ${TEST_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD}
-    volumes:
-      - ./postgres_test_data:/var/lib/postgresql/data
+      - ME_CONFIG_MONGODB_SERVER=container_mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+
 
   mongodb_test:
     image: mongo
@@ -70,6 +73,4 @@ services:
     depends_on:
       - app  # Assurer que tous les services sont démarrés avant d'exécuter les tests unitaires
 
-volumes:
-  mongodb_data:
-  mongodb_test_data:
+

@@ -4,7 +4,7 @@ import requests
 import logging
 
 from common.util_file import write_data_to_csv
-from remote.openservice import get_open_weather_api
+from remote.open_weather_remote_service import get_open_weather_api
 from remote.remote_service import get_request
 
 url = get_open_weather_api(os.environ['OPEN_WEATHER_URL'] + '/data/2.5/weather', 44.34, 10.99)

@@ -14,13 +14,14 @@ if environment == "development":
     # Load environment variables for development
     SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
 
-    MONGO_DB_DATABASE = os.getenv("TEST_MONGODB_DB")
-    MONGO_DATABASE_URL = os.getenv("TEST_MONGO_DATABASE_URL")
+    MONGO_DB_DATABASE = os.getenv("MONGODB_DB")
+    MONGO_DATABASE_URL = os.getenv("MONGO_DATABASE_URL")
 
 
 elif environment == "testing":
     # Load environment variables for testing
     SQLALCHEMY_DATABASE_URL = os.getenv("TEST_SQLALCHEMY_DATABASE_URL")
+
     MONGO_DB_DATABASE = os.getenv("TEST_MONGODB_DB")
     MONGO_DATABASE_URL = os.getenv("TEST_MONGO_DATABASE_URL")
 
