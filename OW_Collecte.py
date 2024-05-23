@@ -4,7 +4,7 @@ import json
 import datetime
 import os.path
 from os import path
-from OpenWeather_API import *
+from API_OpenWeather import *
 
 # Collecte des infos OpenWeather
 
@@ -19,12 +19,16 @@ from OpenWeather_API import *
 # debPériode et finPériode 
 # nombre de boucle de traitement par minute
 
+file_ini = "ow_collecte.ini"
+file_station = "dataStationAus.csv"
+file_ref="weatherAUS.csv"
+file_res="dataOpenWeatherCollected.csv"
+country_code="au"
 
 # Lecture générique de paramétres
 def parametres_charge(pNomFic):
 
-    ficIni=pNomFic
-    fileObject = open(ficIni, "r")
+    fileObject = open(pNomFic, "r")
     jsonContent = fileObject.read()
     paramDict = json.loads(jsonContent)
     fileObject.close()
@@ -54,8 +58,8 @@ def jour_suivant(pDate):
     return pDate
 
 
-# Charger le fichier ville
-def villes_charger(pNomFic):
+# Charger le fichier des stations météo
+def stations_charger(pNomFic):
 
     df_ville=pd.read_csv(pNomFic,sep=";",index_col=0)
     df_ville=df_ville.fillna("")
@@ -63,12 +67,9 @@ def villes_charger(pNomFic):
     return df_ville
 
 
-
 def WA_DailyAgregation(pdf):
 
-
     return pdf
-
 
 
 def WA_WeatherTimestamp(pdf):
@@ -82,21 +83,21 @@ def WA_collecte(test,nbReq):
     # INIT DE LA COLLECTE
 
     # Chargement des paramètres
-    parametres_init("weatherAus.ini")
+    parametres_init(file_ini)
     ville=""
     print("PERIODE DE REFERENCE:",gDebPeriode,gFinPeriode,gFinPeriodeRecherche)
 
-    # Chargement des villes
-    df_villes=villes_charger("villeAus.csv")
+    # Chargement des stations météo
+    df_villes=stations_charger(file_station)
 
     # Chargement du fichier de référence
-    df_ref=pd.read_csv("weatherAUS.csv",sep=";")
+    df_ref=pd.read_csv(file_ref,sep=";")
     listeColonnes=df_ref.columns
 
-    # Ouverture du fichier de collecte DailyAgregation.json
-    fichier_DA = open("DailyAgregation.json", "a")
+    # Ouverture du fichier de collecte dataDailyAgregation.json
+    fichier_DA = open("dataDailyAgregation.json", "a")
     # Ouverture du fichier de collecte WeatherTimeStamp.json
-    fichier_WTS = open("WeatherTimeStamp.json", "a")
+    fichier_WTS = open("dataWeatherTimeStamp.json", "a")
     
     # DEBUT DE BOUCLE DE TRAITEMENT ===============================
     
@@ -128,18 +129,14 @@ def WA_collecte(test,nbReq):
             # => Long = ville.long
             # => dateInitiale = ville.DerniereDateTraitée
             ville=ville2["VilleReelle"]
-            lat=ville2["Latitude"]
-            long=ville2["Longitude"]
-
-            # Calcul du nom du fichier résultat
-            # => ficVille = weatherAus_Ville.csv
-            ficDfVille="OW_collecte.csv"
-            
+            latitude=str(ville2["Latitude"])
+            longitude=str(ville2["Longitude"])
+      
             # Initialisation du fichier collecte    
             i=0    
             df_trait=pd.DataFrame([],columns=listeColonnes)
-            if not path.exists(ficDfVille):
-                df_trait.to_csv(ficDfVille,sep=";",mode='a',index=False)
+            if not path.exists(file_res):
+                df_trait.to_csv(file_res,sep=";",mode='a',index=False)
 
 
         print("\n A TRAITER: ",ville, dateTrait)
@@ -152,7 +149,7 @@ def WA_collecte(test,nbReq):
 
             # DailyAgregation
             # Collecte et traitements des données ( Ville, ville.Lat, ville.Long, dateRech )
-            weather_infos=DailyAgregation_API(ville,"au",dateTrait)
+            weather_infos=API_dailyAgregation(ville,country_code,dateTrait,latitude,longitude)
             obj_python = weather_infos
             # Sauvegarde des données brute DailyAgregation
             fichier_DA.write(json.dumps(obj_python))
@@ -166,20 +163,20 @@ def WA_collecte(test,nbReq):
             df_trait.loc[i, 'Rainfall']=obj_python['precipitation']['total']
             df_trait.loc[i, 'Evaporation']=""     # obj_python['precipitation']['total']
             df_trait.loc[i, 'Sunshine']=""        # obj_python['precipitation']['total']
-            df_trait.loc[i, 'WindGustDir']=WindOrientation(obj_python['wind']['max']["direction"])
+            df_trait.loc[i, 'WindGustDir']=wind_orientation(obj_python['wind']['max']["direction"])
             df_trait.loc[i, 'WindGustSpeed']=obj_python['wind']['max']["speed"]
 
 
             # WeatherTimeStamp 9h
             # Collecte et traitements des données ( Ville, ville.Lat, ville.Long, dateRech, heureRech (9 et 15))
             dateTrait2=dateTrait[0:4]+dateTrait[5:7]+dateTrait[8:10] 
-            weather_infos=WeatherTimeStamp_API(ville,"au",dateTrait2,"0900")
+            weather_infos=API_weatherTimeStamp(ville,"au",dateTrait2,"0900")
             obj_python = weather_infos
             # Sauvegarde des données brutes WeatherTimeStamp
             fichier_WTS.write(json.dumps(obj_python))
             fichier_WTS.write("\n")
             # Traitement et intégration des données WeatherTimeStamp
-            df_trait.loc[i, 'WindDir9am']=WindOrientation(obj_python['data'][0]['wind_deg'])
+            df_trait.loc[i, 'WindDir9am']=wind_orientation(obj_python['data'][0]['wind_deg'])
             df_trait.loc[i, 'WindSpeed9am']=obj_python['data'][0]['wind_speed']
             df_trait.loc[i, 'Humidity9am']=obj_python['data'][0]['humidity']
             df_trait.loc[i, 'Pressure9am']=obj_python['data'][0]['pressure']
@@ -189,13 +186,13 @@ def WA_collecte(test,nbReq):
 
             # WeatherTimeStamp 15h
             # Collecte et traitements des données ( Ville, ville.Lat, ville.Long, dateRech, heureRech (9 et 15))
-            weather_infos=WeatherTimeStamp_API(ville,"au",dateTrait2,"1500")
+            weather_infos=API_weatherTimeStamp(ville,"au",dateTrait2,"1500")
             obj_python = weather_infos
             # Sauvegarde des données brutes WeatherTimeStamp
             fichier_WTS.write(json.dumps(obj_python))
             fichier_WTS.write("\n")
             # Traitement et intégration des données WeatherTimeStamp
-            df_trait.loc[i, 'WindDir3pm']=WindOrientation(obj_python['data'][0]['wind_deg'])
+            df_trait.loc[i, 'WindDir3pm']=wind_orientation(obj_python['data'][0]['wind_deg'])
             df_trait.loc[i, 'WindSpeed3pm']=obj_python['data'][0]['wind_speed']
             df_trait.loc[i, 'Humidity3pm']=obj_python['data'][0]['humidity']
             df_trait.loc[i, 'Pressure3pm']=obj_python['data'][0]['pressure']
@@ -229,15 +226,15 @@ def WA_collecte(test,nbReq):
     # FIN DE LA COLLECTE
 
     # Sauver les données collectées
-    df_trait.to_csv(ficDfVille,sep=";",mode='a',index=False, header=False)
-
+    df_trait.to_csv(file_res,sep=";",mode='a',index=False, header=False)
 
     # => Enregistrement de la liste des villes
     # Sauver le fichier ville
-    df_villes.to_csv("villeAus.csv",sep=";")
+    df_villes.to_csv(file_station,sep=";")
 
     # Fermeture du fichier DailyAgregation.json
     fichier_DA.close()
+
     # Fermeture du fichier WeatherTimeStamp.json
     fichier_WTS.close()
 
