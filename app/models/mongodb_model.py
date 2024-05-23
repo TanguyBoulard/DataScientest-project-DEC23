@@ -3,6 +3,8 @@ import os
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
+from common.ExceptionHandler import LOGGER
+from common.util_request import logger
 from models.database import db
 
 load_dotenv()
@@ -21,7 +23,7 @@ def insert_document(document):
     try:
         # Insert document into the collection
         inserted_document = collection.insert_one(document)
-        print("Document inserted successfully.")
+        LOGGER.info("Document inserted successfully.")
         return inserted_document.inserted_id
 
     except Exception as e:
@@ -33,8 +35,8 @@ def get_all_documents():
         documents = collection.find()
         return list(documents)
     except Exception as e:
-        print(f"Error retrieving documents: {e}")
-        return []
+        LOGGER.error(f"Error retrieving documents: {e}")
+        raise
 
 
 # Récupérer un document par son identifiant

@@ -9,6 +9,7 @@ alembic
 pymongo
 requests
 python-dotenv
-
-
+schedule
+pandas
 urllib3
+colorlog
