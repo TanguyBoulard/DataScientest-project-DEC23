@@ -77,6 +77,17 @@ def WA_WeatherTimestamp(pdf):
     return pdf
 
 
+# Sauver le dataFrame des données collectées
+def df_trait_sauve(p_df, p_file_res):
+    p_df.to_csv(p_file_res,sep=";",mode='a',index=False, header=False)
+
+# Init du dataFrame des données collectées
+def df_trait_Init(p_liste_colonnes, p_file_res):
+    df_trait=pd.DataFrame([],columns=p_liste_colonnes)
+    if not path.exists(p_file_res):
+        df_trait.to_csv(p_file_res,sep=";",mode='a',index=False)
+    return df_trait
+
 
 def WA_collecte(test,nbReq):
 
@@ -122,8 +133,10 @@ def WA_collecte(test,nbReq):
                     dateTrait=gFinPeriode
                     dateTrait=jour_suivant(dateTrait)
                 else:
+                    dateTrait=""
                     print("Fin du traitement")   
 
+            
             # => Ville = ville.nom
             # => Lat = ville.lat
             # => Long = ville.long
@@ -132,11 +145,12 @@ def WA_collecte(test,nbReq):
             latitude=str(ville2["Latitude"])
             longitude=str(ville2["Longitude"])
       
-            # Initialisation du fichier collecte    
-            i=0    
-            df_trait=pd.DataFrame([],columns=listeColonnes)
-            if not path.exists(file_res):
-                df_trait.to_csv(file_res,sep=";",mode='a',index=False)
+            # Initialisation du fichier collecte
+            i=0
+            df_trait = df_trait_Init(listeColonnes, file_res)
+            #df_trait=pd.DataFrame([],columns=listeColonnes)
+            #if not path.exists(file_res):
+            #    df_trait.to_csv(file_res,sep=";",mode='a',index=False)
 
 
         print("\n A TRAITER: ",ville, dateTrait)
@@ -144,16 +158,18 @@ def WA_collecte(test,nbReq):
     
         # TRAITEMENT DE COLLECTE
  
-        if test==False:
+        if (test==False) and (dateTrait!=''):
 
 
             # DailyAgregation
             # Collecte et traitements des données ( Ville, ville.Lat, ville.Long, dateRech )
             weather_infos=API_dailyAgregation(ville,country_code,dateTrait,latitude,longitude)
             obj_python = weather_infos
+            
             # Sauvegarde des données brute DailyAgregation
-            fichier_DA.write(json.dumps(obj_python))
-            fichier_DA.write("\n")
+            #fichier_DA.write(json.dumps(obj_python))
+            #fichier_DA.write("\n")
+            
             # Traitement des données externes
             df_trait.loc[i, 'Date']=obj_python['date']
             df_trait.loc[i, 'Location']=ville
@@ -172,9 +188,11 @@ def WA_collecte(test,nbReq):
             dateTrait2=dateTrait[0:4]+dateTrait[5:7]+dateTrait[8:10] 
             weather_infos=API_weatherTimeStamp(ville,"au",dateTrait2,"0900")
             obj_python = weather_infos
+            
             # Sauvegarde des données brutes WeatherTimeStamp
-            fichier_WTS.write(json.dumps(obj_python))
-            fichier_WTS.write("\n")
+            #fichier_WTS.write(json.dumps(obj_python))
+            #fichier_WTS.write("\n")
+            
             # Traitement et intégration des données WeatherTimeStamp
             df_trait.loc[i, 'WindDir9am']=wind_orientation(obj_python['data'][0]['wind_deg'])
             df_trait.loc[i, 'WindSpeed9am']=obj_python['data'][0]['wind_speed']
@@ -188,9 +206,11 @@ def WA_collecte(test,nbReq):
             # Collecte et traitements des données ( Ville, ville.Lat, ville.Long, dateRech, heureRech (9 et 15))
             weather_infos=API_weatherTimeStamp(ville,"au",dateTrait2,"1500")
             obj_python = weather_infos
+            
             # Sauvegarde des données brutes WeatherTimeStamp
-            fichier_WTS.write(json.dumps(obj_python))
-            fichier_WTS.write("\n")
+            #fichier_WTS.write(json.dumps(obj_python))
+            #fichier_WTS.write("\n")
+            
             # Traitement et intégration des données WeatherTimeStamp
             df_trait.loc[i, 'WindDir3pm']=wind_orientation(obj_python['data'][0]['wind_deg'])
             df_trait.loc[i, 'WindSpeed3pm']=obj_python['data'][0]['wind_speed']
@@ -221,12 +241,15 @@ def WA_collecte(test,nbReq):
         i+=1
         if dateTrait>gFinPeriodeRecherche:
             ville="" 
-
+            # Sauver les données collectées
+            #df_trait.to_csv(file_res,sep=";",mode='a',index=False, header=False)
+            df_trait_sauve(df_trait, file_res)
 
     # FIN DE LA COLLECTE
 
     # Sauver les données collectées
-    df_trait.to_csv(file_res,sep=";",mode='a',index=False, header=False)
+    #df_trait.to_csv(file_res,sep=";",mode='a',index=False, header=False)
+    df_trait_sauve(df_trait, file_res)
 
     # => Enregistrement de la liste des villes
     # Sauver le fichier ville
