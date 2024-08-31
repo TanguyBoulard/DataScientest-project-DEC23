@@ -12,6 +12,7 @@ services:
       - "${MONGO_PORT}:27017"
     volumes:
       - ./database/init/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./data/mongo_data:/data/db
     networks:
       - backend
 
@@ -26,11 +27,40 @@ services:
       PG_PASSWORD: ${PG_PASSWORD}
       PG_HOST: ${PG_HOST}
       PG_PORT: ${PG_PORT}
+      API_ADMIN_USER: ${API_ADMIN_USER}
+      API_ADMIN_PASSWORD: ${API_ADMIN_PASSWORD}
+      API_USER: ${API_USER}
+      API_PASSWORD: ${API_PASSWORD}
     ports:
       - "${PG_PORT}:5432"
     volumes:
       - ./database/init/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
       - ./database/init/init-postgres.sql:/tmp/init-postgres-tmp.sql
+      - ./data/postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: fastapi
+    environment:
+      API_PORT: ${API_PORT}
+      API_HOST: ${API_HOST}
+      API_DEBUG: ${API_DEBUG}
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PG_HOST: postgres
+      PG_PORT: ${PG_PORT}
+    ports:
+      - "${API_PORT}:8000"
+    volumes:
+      - ./api/app.py:/app.py
+    depends_on:
+      - postgres
     networks:
       - backend
 

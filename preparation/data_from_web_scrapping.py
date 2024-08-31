@@ -152,16 +152,10 @@ if __name__ == '__main__':
     postgres = PostgresManager()
 
     # Define the dates to scrape: <year><month>
-    dates_to_scrape = ['202304', '202305', '202306', '202307', '202308', '202309',
-                       '202310', '202311', '202312', '202401', '202402', '202403',
-                       '202404', '202405', '202406']
+    dates_to_scrape = ['202409']
 
     # Define the locations to scrape: <location>: <location_id_on_website>
-    locations_to_scrape = {'Canberra': '2801',
-                           'Sydney': '2124',
-                           'Darwin': '8014',
-                           'Melbourne': '3033',
-                           'Brisbane': '4019'}
+    locations_to_scrape = {'Canberra': '2801'}
 
     # Generate the URLs to scrape
     pages_to_scrape = generate_urls(dates_to_scrape, list(locations_to_scrape.values()))

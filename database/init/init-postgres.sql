@@ -3,6 +3,19 @@ GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${PG_USER};
 
 \connect ${POSTGRES_DB};
 
+CREATE TABLE api_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
+
+INSERT INTO api_users (
+    username,
+    password
+) VALUES
+    ('${API_ADMIN_USER}', '${API_ADMIN_PASSWORD}'),
+    ('${API_USER}', '${API_PASSWORD}');
+
 CREATE TABLE city (
     id SERIAL PRIMARY KEY,
     name      VARCHAR(255) NOT NULL,

@@ -10,7 +10,7 @@ from database.postgresql_functools import PostgresManager, Base, City, Weather, 
     AirPollution
 from utils.json_functools import load_from_json
 from utils.openweather_functools import request_api, extract_lat_lon, build_date_timestamp, \
-    get_rain_info, deg_to_cardinal
+    deg_to_cardinal
 
 
 class OpenWeatherAPI(ABC):

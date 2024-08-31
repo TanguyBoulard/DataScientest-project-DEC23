@@ -10,8 +10,8 @@ class MongoDBManager:
     def __init__(self):
         self.user = os.getenv('MONGO_USER')
         self.password = os.getenv('MONGO_PASSWORD')
-        self.host = os.getenv('MONGO_HOST', 'localhost')
-        self.port = os.getenv('MONGO_PORT', '27017')
+        self.host = os.getenv('MONGO_HOST')
+        self.port = os.getenv('MONGO_PORT')
         self.dbname = os.getenv('MONGO_INITDB_DATABASE')
 
         self.client = MongoClient(
@@ -58,7 +58,7 @@ class MongoDBManager:
         return delete_result
 
     def delete_documents(self, collection_name, query):
-        """ Delete multiple documents from a collection """
+        """ Delete multiples documents from a collection """
         collection = self.db[collection_name]
         deletion_result = collection.delete_many(query)
         delete_result = deletion_result.deleted_count

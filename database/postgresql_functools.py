@@ -2,8 +2,8 @@
 
 import os
 
-from sqlalchemy import (create_engine, ForeignKey, Column, Integer, String,
-                        Float, Date, Time, DateTime, func)
+from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, \
+    Float, Date, Time, DateTime, func
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 Base = declarative_base()
@@ -163,13 +163,26 @@ class City(Base):
                 f"Longitude={self.longitude})>")
 
 
+class APIUsers(Base):
+    """ API Users table """
+    __tablename__ = 'api_users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False, unique=True)
+    password = Column(String, nullable=False)
+
+    def __repr__(self):
+        return (f"<APIUsers(Username={self.username},"
+                f"Password={self.password})>")
+
+
 class PostgresManager:
     """ Postgres Manager class """
     def __init__(self):
         self.user = os.getenv('PG_USER')
         self.password = os.getenv('PG_PASSWORD')
-        self.host = os.getenv('PG_HOST', 'localhost')
-        self.port = os.getenv('PG_PORT', '5432')
+        self.host = os.getenv('PG_HOST')
+        self.port = os.getenv('PG_PORT')
         self.dbname = os.getenv('POSTGRES_DB')
 
         self.engine = create_engine(
@@ -186,9 +199,9 @@ class PostgresManager:
         """ Fetch a record from a table """
         return self.session.query(model).filter_by(**query).first()
 
-    def fetch_all_records(self, model):
+    def fetch_table(self, table):
         """ Fetch all records from a table """
-        return self.session.query(model).all()
+        return self.session.query(table).all()
 
     def delete_record(self, record):
         """ Delete a record from the database """
