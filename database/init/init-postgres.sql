@@ -1,30 +1,49 @@
-CREATE USER ${PG_USER} WITH ENCRYPTED PASSWORD '${PG_PASSWORD}';
+-- Create users if they don't exist
+DO
+$$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${PG_USER}') THEN
+    CREATE USER ${PG_USER} WITH ENCRYPTED PASSWORD '${PG_PASSWORD}';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${AIRFLOW_USER}') THEN
+    CREATE USER ${AIRFLOW_USER} WITH ENCRYPTED PASSWORD '${AIRFLOW_PASSWORD}';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${AIRFLOW_ADMIN_USER}') THEN
+    CREATE USER ${AIRFLOW_ADMIN_USER} WITH ENCRYPTED PASSWORD '${AIRFLOW_ADMIN_PASSWORD}' CREATEDB;
+  END IF;
+END
+$$;
+
+-- Create databases if they don't exist
+SELECT 'CREATE DATABASE ${AIRFLOW_DB}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${AIRFLOW_DB}')
+\gexec
+
+-- Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE ${AIRFLOW_DB} TO ${AIRFLOW_USER}, ${AIRFLOW_ADMIN_USER};
 GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${PG_USER};
 
-\connect ${POSTGRES_DB};
+-- Switch to main database
+\c ${POSTGRES_DB}
 
-CREATE TABLE api_users (
+-- Create tables (rest of your table creation code remains the same)
+CREATE TABLE IF NOT EXISTS api_users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
+    username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL
 );
 
-INSERT INTO api_users (
-    username,
-    password
-) VALUES
-    ('${API_ADMIN_USER}', '${API_ADMIN_PASSWORD}'),
-    ('${API_USER}', '${API_PASSWORD}');
-
-CREATE TABLE city (
+CREATE TABLE IF NOT EXISTS city (
     id SERIAL PRIMARY KEY,
-    name      VARCHAR(255) NOT NULL,
-    country   VARCHAR(255),
-    latitude  FLOAT NOT NULL,
-    longitude FLOAT NOT NULL
+    name VARCHAR(255) NOT NULL,
+    country VARCHAR(255),
+    latitude FLOAT NOT NULL UNIQUE,
+    longitude FLOAT NOT NULL UNIQUE
 );
 
-CREATE TABLE weather (
+CREATE TABLE IF NOT EXISTS weather (
     id SERIAL PRIMARY KEY,
     date TIMESTAMP NOT NULL,
     temp FLOAT,
@@ -32,14 +51,13 @@ CREATE TABLE weather (
     sunset TIME,
     wind_dir VARCHAR(255),
     wind_speed FLOAT,
-    cloud    FLOAT,
+    cloud FLOAT,
     humidity FLOAT,
     pressure FLOAT,
-    city_id INTEGER NOT NULL,
-    FOREIGN KEY (city_id) REFERENCES city(id)
+    city_id INTEGER NOT NULL REFERENCES city(id)
 );
 
-CREATE TABLE daily_weather (
+CREATE TABLE IF NOT EXISTS daily_weather (
     id SERIAL PRIMARY KEY,
     date TIMESTAMP NOT NULL,
     min_temp FLOAT,
@@ -49,11 +67,10 @@ CREATE TABLE daily_weather (
     sunshine FLOAT,
     wind_gust_dir VARCHAR(255),
     wind_gust_speed FLOAT,
-    city_id INTEGER NOT NULL,
-    FOREIGN KEY (city_id) REFERENCES city(id)
+    city_id INTEGER NOT NULL REFERENCES city(id)
 );
 
-CREATE TABLE air_pollution (
+CREATE TABLE IF NOT EXISTS air_pollution (
     id SERIAL PRIMARY KEY,
     date TIMESTAMP NOT NULL,
     air_quality_index INTEGER,
@@ -65,53 +82,65 @@ CREATE TABLE air_pollution (
     pm25_concentration FLOAT,
     pm10_concentration FLOAT,
     nh3_concentration FLOAT,
-    city_id INTEGER NOT NULL,
-    FOREIGN KEY (city_id) REFERENCES city(id)
+    city_id INTEGER NOT NULL REFERENCES city(id)
 );
 
-CREATE VIEW australian_meteorology_weather AS
-    SELECT
-        dw.id,
-        EXTRACT(YEAR FROM dw.date) || '-' || EXTRACT(MONTH FROM dw.date) || '-' || EXTRACT(DAY FROM dw.date) AS date,
-        c.name AS location,
-        dw.min_temp,
-        dw.max_temp,
-        dw.rainfall,
-        dw.evaporation,
-        dw.sunshine,
-        dw.wind_gust_dir,
-        dw.wind_gust_speed,
-        w9.temp AS temp_9am,
-        w9.humidity AS humidity_9am,
-        w9.cloud AS cloud_9am,
-        w9.wind_dir AS wind_dir_9am,
-        w9.wind_speed AS wind_speed_9am,
-        w9.pressure AS pressure_9am,
-        w3.temp AS temp_3pm,
-        w3.humidity AS humidity_3pm,
-        w3.cloud AS cloud_3pm,
-        w3.wind_dir AS wind_dir_3pm,
-        w3.wind_speed AS wind_speed_3pm,
-        w3.pressure AS pressure_3pm
-    FROM
-        daily_weather dw
-    JOIN
-        city c ON dw.city_id = c.id
-    LEFT JOIN
-        weather w9 ON dw.city_id = w9.city_id
-                          AND EXTRACT(HOUR FROM w9.date) = 9
-                          AND EXTRACT(YEAR FROM dw.date) = EXTRACT(YEAR FROM w9.date)
-                          AND EXTRACT(MONTH FROM dw.date) = EXTRACT(MONTH FROM w9.date)
-                          AND EXTRACT(DAY FROM dw.date) = EXTRACT(DAY FROM w9.date)
-    LEFT JOIN
-        weather w3 ON dw.city_id = w3.city_id
-                          AND EXTRACT(HOUR FROM w3.date) = 15
-                          AND EXTRACT(YEAR FROM dw.date) = EXTRACT(YEAR FROM w3.date)
-                          AND EXTRACT(MONTH FROM dw.date) = EXTRACT(MONTH FROM w3.date)
-                          AND EXTRACT(DAY FROM dw.date) = EXTRACT(DAY FROM w3.date)
-    ORDER BY
-        location, date;
+-- Insert initial users
+INSERT INTO api_users (username, password)
+VALUES ('${API_ADMIN_USER}', '${API_ADMIN_PASSWORD}'),
+       ('${API_USER}', '${API_PASSWORD}')
+ON CONFLICT (username) DO NOTHING;
 
+-- Create view
+CREATE OR REPLACE VIEW australian_meteorology_weather AS
+SELECT
+    dw.id,
+    TO_CHAR(dw.date, 'YYYY-MM-DD') AS date,
+    c.name AS location,
+    dw.min_temp,
+    dw.max_temp,
+    dw.rainfall,
+    dw.evaporation,
+    dw.sunshine,
+    dw.wind_gust_dir,
+    dw.wind_gust_speed,
+    w9.temp AS temp_9am,
+    w9.humidity AS humidity_9am,
+    w9.cloud AS cloud_9am,
+    w9.wind_dir AS wind_dir_9am,
+    w9.wind_speed AS wind_speed_9am,
+    w9.pressure AS pressure_9am,
+    w3.temp AS temp_3pm,
+    w3.humidity AS humidity_3pm,
+    w3.cloud AS cloud_3pm,
+    w3.wind_dir AS wind_dir_3pm,
+    w3.wind_speed AS wind_speed_3pm,
+    w3.pressure AS pressure_3pm
+FROM
+    daily_weather dw
+JOIN
+    city c ON dw.city_id = c.id
+LEFT JOIN
+    weather w9 ON dw.city_id = w9.city_id
+        AND DATE_TRUNC('day', w9.date) = DATE_TRUNC('day', dw.date)
+        AND EXTRACT(HOUR FROM w9.date) = 9
+LEFT JOIN
+    weather w3 ON dw.city_id = w3.city_id
+        AND DATE_TRUNC('day', w3.date) = DATE_TRUNC('day', dw.date)
+        AND EXTRACT(HOUR FROM w3.date) = 15
+ORDER BY
+    location, date;
 
+-- Grant privileges
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${PG_USER};
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${PG_USER};
+
+-- Switch to Airflow database
+\c ${AIRFLOW_DB}
+
+-- Grant privileges to Airflow user
+GRANT ALL PRIVILEGES ON DATABASE ${AIRFLOW_DB} TO ${AIRFLOW_USER};
+GRANT ALL PRIVILEGES ON SCHEMA public TO ${AIRFLOW_USER};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${AIRFLOW_USER};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${AIRFLOW_USER};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO ${AIRFLOW_USER};

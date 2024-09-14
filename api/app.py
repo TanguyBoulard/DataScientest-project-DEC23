@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import pandas as pd
+from starlette.responses import PlainTextResponse
 
 from database.postgresql_functools import PostgresManager, City, APIUsers
 
@@ -90,6 +91,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         return user
     except JWTError:
         raise credentials_exception
+
+
+@app.get('/health', response_class=PlainTextResponse)
+async def health_check():
+    try:
+        # Check database connection
+        postgres_manager.engine.connect()
+        return 'OK'
+    except Exception:
+        raise HTTPException(status_code=503, detail='Service Unavailable')
 
 
 @app.post('/token', response_model=Token)

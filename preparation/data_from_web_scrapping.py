@@ -15,6 +15,9 @@ from bs4 import BeautifulSoup
 from database.postgresql_functools import PostgresManager
 from utils.df_to_kaggle_format import transform_to_kaggle_format
 
+load_dotenv()
+postgres = PostgresManager()
+
 
 def generate_urls(dates: List[str], locations: List[str]) -> List[str]:
     """
@@ -147,15 +150,17 @@ def aggregate_weather_data(urls: List[str]) -> pd.DataFrame:
     return aggregated_df
 
 
-if __name__ == '__main__':
-    load_dotenv()
-    postgres = PostgresManager()
-
-    # Define the dates to scrape: <year><month>
-    dates_to_scrape = ['202409']
-
+def scrap_weather_data(dates_to_scrape: List[str]) -> None:
+    """
+    Scrapes the Australian Bureau of Meteorology website for weather data
+    :param dates_to_scrape: Define the dates to scrape: <year><month>
+    """
     # Define the locations to scrape: <location>: <location_id_on_website>
-    locations_to_scrape = {'Canberra': '2801'}
+    locations_to_scrape = {'Canberra': '2801',
+                           'Sydney': '2124',
+                           'Darwin': '8014',
+                           'Melbourne': '3033',
+                           'Brisbane': '4019'}
 
     # Generate the URLs to scrape
     pages_to_scrape = generate_urls(dates_to_scrape, list(locations_to_scrape.values()))
@@ -165,9 +170,14 @@ if __name__ == '__main__':
         .replace({'Melbourne (Olympic Park)': 'Melbourne',
                   'Brisbane': 'Brisbane City'})
 
-    daily_weather, weather_9am, weather_3pm = transform_to_kaggle_format(weather_scrapped, postgres)
+    daily_weather, weather_9am, weather_3pm = transform_to_kaggle_format(weather_scrapped,
+                                                                         postgres)
 
     # Store the weather data to data warehouse
     daily_weather.to_sql('daily_weather', postgres.engine, if_exists='append', index=False)
     weather_9am.to_sql('weather', postgres.engine, if_exists='append', index=False)
     weather_3pm.to_sql('weather', postgres.engine, if_exists='append', index=False)
+
+
+if __name__ == '__main__':
+    scrap_weather_data(['202409'])
