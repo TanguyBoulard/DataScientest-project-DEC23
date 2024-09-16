@@ -7,5 +7,9 @@ venv/
 .idea/
 .env
 /.ipynb_checkpoints/
+/database/postgres_data/
+/database/mongo_data/
+/model/*
+!/model/.gitkeep
 /airflow/logs/*
 !/airflow/logs/.gitkeep

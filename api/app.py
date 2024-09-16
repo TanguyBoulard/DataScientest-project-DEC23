@@ -17,7 +17,7 @@ from starlette.responses import PlainTextResponse
 from database.postgresql_functools import PostgresManager, City, APIUsers
 
 load_dotenv()
-root_path = Path().resolve().parent
+root_path = os.getenv('ROOT_PATH')
 
 SECRET_KEY = os.getenv('API_SECRET_KEY')
 ALGORITHM = 'HS256'

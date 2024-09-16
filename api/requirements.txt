@@ -9,3 +9,13 @@ python-jose
 python-multipart
 pandas
 requests
+beautifulsoup4
+lxml
+numpy
+pandas
+psycopg2-binary
+pymongo
+python-dotenv
+requests
+scikit-learn
+SQLAlchemy

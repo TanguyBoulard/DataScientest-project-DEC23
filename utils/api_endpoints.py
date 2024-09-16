@@ -2,6 +2,7 @@ import os
 from typing import Dict
 import requests
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 BASE_URL = f"http://{os.getenv('API_HOST')}:{os.getenv('API_PORT')}"
@@ -48,6 +49,6 @@ def get_data(endpoint: str, token: str, params: Dict[str, str]) -> Dict:
 if __name__ == '__main__':
     token = get_token(USERNAME, PASSWORD)
 
-    params = {'city': 'Canberra', 'date': '2024-9-5'}
+    params = {'city': 'Canberra', 'date': datetime.now().strftime('%Y-%m-%d')}
     prediction = get_data('predict', token, params)
     print(prediction)

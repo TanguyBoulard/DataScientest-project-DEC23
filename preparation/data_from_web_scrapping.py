@@ -8,15 +8,12 @@ from itertools import product
 import re
 from typing import Optional, Tuple
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 import pandas as pd
 from bs4 import BeautifulSoup
 from database.postgresql_functools import PostgresManager
 from utils.df_to_kaggle_format import transform_to_kaggle_format
-
-load_dotenv()
-postgres = PostgresManager()
 
 
 def generate_urls(dates: List[str], locations: List[str]) -> List[str]:
@@ -180,4 +177,11 @@ def scrap_weather_data(dates_to_scrape: List[str]) -> None:
 
 
 if __name__ == '__main__':
-    scrap_weather_data(['202409'])
+    load_dotenv()
+    postgres = PostgresManager()
+
+    # Calculate the last 12 months from the current date
+    current_date = datetime.now()
+    dates_to_scrape = [(current_date - timedelta(days=30 * i)).strftime('%Y%m') for i in range(12)]
+
+    scrap_weather_data(dates_to_scrape)

@@ -2,14 +2,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+COPY ./api/requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY ./config.json /app/config.json
+COPY ./database /app/database
 COPY ./preparation /app/preparation
 COPY ./data_pipeline /app/data_pipeline
 COPY ./utils /app/utils
-COPY ./database /app/database
-
-RUN pip install python-dotenv pymongo sqlalchemy psycopg2-binary requests
 
 ENV PYTHONPATH=/app
+ENV ROOT_PATH=/app
 
-CMD ["python", "preparation/city_from_openweather.py"]
+COPY ./api/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
