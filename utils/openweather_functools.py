@@ -62,6 +62,8 @@ def build_date_timestamp(timestamp: int, timezone: int = 0, mode: str = 'date') 
         return local_time.strftime('%Y-%m-%d')
     elif mode == 'hours':
         return local_time.strftime('%H:%M:%S')
+    elif mode == 'datehours':
+        return local_time.strftime('%Y-%m-%d %H:00:00')
     elif mode == 'datetime':
         return local_time.strftime('%Y-%m-%d %H:%M:%S')
     else:

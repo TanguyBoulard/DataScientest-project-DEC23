@@ -168,6 +168,34 @@ class OpenWeatherCurrentWeather(OpenWeatherByCities):
             }
 
 
+class OpenWeatherHourWeather(OpenWeatherByCities):
+    def __init__(self):
+        super().__init__()
+        self.endpoint = self.endpoint + '2.5/weather'
+        self.collection_name = 'weather'
+        self.table_name = Weather
+
+    def transform_data(self, data: Dict) -> Dict:
+        return {
+                'date': build_date_timestamp(timestamp=data['dt'],
+                                             timezone=data['timezone'],
+                                             mode='datehours'),
+                'temp': data['main']['temp'],
+                'sunrise': build_date_timestamp(timestamp=data['sys']['sunrise'],
+                                                timezone=data['timezone'],
+                                                mode='hours'),
+                'sunset': build_date_timestamp(timestamp=data['sys']['sunset'],
+                                               timezone=data['timezone'],
+                                               mode='hours'),
+                'wind_dir': deg_to_cardinal(data['wind']['deg']),
+                'wind_speed': data['wind']['speed'],
+                'cloud': data['clouds']['all'],
+                'humidity': data['main']['humidity'],
+                'pressure': data['main']['pressure'],
+                'city_id': self.get_city_id(data['coord']['lat'], data['coord']['lon'])
+            }
+
+
 class OpenWeatherDailyWeather(OpenWeatherByCities):
     def __init__(self, date: str):
         super().__init__()

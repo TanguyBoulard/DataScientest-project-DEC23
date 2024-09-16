@@ -1,4 +1,3 @@
-from pathlib import Path
 import os
 from datetime import datetime, timedelta
 from typing import Optional
@@ -12,9 +11,12 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import pandas as pd
+from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.responses import PlainTextResponse
 
-from database.postgresql_functools import PostgresManager, City, APIUsers
+from database.postgresql_functools import PostgresManager, City, APIUsers, \
+    AustralianMeteorologyWeather
+from dash_app import dash_app
 
 load_dotenv()
 root_path = os.getenv('ROOT_PATH')
@@ -119,22 +121,37 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return Token(access_token=access_token)
 
 
-@app.get('/cities')
-async def get_cities(current_user: User = Depends(get_current_user)):
-    return postgres_manager.fetch_table(City)
+@app.get("/cities")
+async def get_cities():
+    cities = postgres_manager.fetch_table(City)
+    return [{"name": city.name, "id": city.id} for city in cities]
 
 
-@app.get('/users')
-async def get_users(current_user: User = Depends(get_current_user)):
-    return postgres_manager.fetch_table(APIUsers)
+@app.get("/weather")
+async def get_weather(city: str, start_date: str, end_date: str):
+    weather_data = postgres_manager.session.query(AustralianMeteorologyWeather).filter(
+        AustralianMeteorologyWeather.location == city,
+        AustralianMeteorologyWeather.date.between(start_date, end_date)
+    ).all()
+
+    return [{
+        "date": w.date,
+        "max_temp": w.max_temp,
+        "min_temp": w.min_temp,
+        "rainfall": w.rainfall,
+        "sunshine": w.sunshine,
+        "humidity_9am": w.humidity_9am,
+        "humidity_3pm": w.humidity_3pm
+    } for w in weather_data]
 
 
 @app.get('/predict')
 async def predict_rain(date: str, city: str, current_user: User = Depends(get_current_user)):
+    previous_day = (datetime.strptime(date, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
     weather_data_df = pd.read_sql_query(
         'SELECT * '
         'FROM australian_meteorology_weather '
-        f"WHERE location = '{city}' AND date = '{date}'",
+        f"WHERE location = '{city}' AND date = '{previous_day}'",
         postgres_manager.engine) \
         .drop(columns=['id'])
     if weather_data_df.empty:
@@ -143,4 +160,6 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
     weather_data_df['rain_today'] = 'Yes' if weather_data_df['rainfall'].iloc[0] >= 1 else 'No'
     prediction = model_pipeline.predict(weather_data_df)
 
-    return {'city': city, 'date': date, 'rain tomorrow': prediction[0]}
+    return {'city': city, 'date': date, 'rain_tomorrow': prediction[0]}
+
+app.mount("/dashboard", WSGIMiddleware(dash_app.server))

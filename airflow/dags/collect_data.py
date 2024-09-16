@@ -24,11 +24,15 @@ def scrape_weather_data_wrapper():
     dates_to_scrape = [get_previous_month()]
     scrap_weather_data(dates_to_scrape)
 
-def run_air_pollution_pipeline_wrapper():
-    from data_pipeline.pipeline import run_air_pollution_pipeline
-    run_air_pollution_pipeline()
+def run_daily_weather_pipeline_wrapper():
+    from data_pipeline.pipeline import run_daily_weather_pipeline
+    run_daily_weather_pipeline()
 
-def run_weather_pipeline_wrapper():
+def run_hour_weather_pipeline_wrapper():
+    from data_pipeline.pipeline import run_hour_weather_pipeline
+    run_hour_weather_pipeline()
+
+def run_minutely_weather_pipeline_wrapper():
     from data_pipeline.pipeline import run_weather_pipeline
     run_weather_pipeline()
 
@@ -38,7 +42,7 @@ with DAG(
     default_args=default_args,
     description='A DAG to scrape weather data monthly',
     schedule_interval='0 0 1 * *',
-    start_date=datetime(2024, 9, 20),
+    start_date=datetime(2024, 9, 10),
     catchup=False,
 ) as dag_monthly:
     scrape_weather_data_task = PythonOperator(
@@ -46,19 +50,53 @@ with DAG(
         python_callable=scrape_weather_data_wrapper,
     )
 
-# DAG for daily pipeline runs
+# DAG for hour pipeline runs
 with DAG(
     'daily_weather_pipeline',
     default_args=default_args,
     description='A DAG to run the weather data pipeline daily',
-    schedule_interval='0 9,15 * * *',
-    start_date=datetime(2024, 9, 20, tzinfo=timezone('Australia/Sydney')),
+    schedule_interval='0 0 * * *',
+    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
     catchup=False,
 ) as dag_daily:
 
-    run_weather_pipeline_task = PythonOperator(
-        task_id='run_weather_pipeline',
-        python_callable=run_weather_pipeline_wrapper,
+    run_daily_weather_pipeline_task = PythonOperator(
+        task_id='run_daily_weather_pipeline',
+        python_callable=run_daily_weather_pipeline_wrapper,
     )
 
-    run_weather_pipeline_task
+    run_daily_weather_pipeline_task
+
+# DAG for hour pipeline runs
+with DAG(
+    'hour_weather_pipeline',
+    default_args=default_args,
+    description='A DAG to run the weather data pipeline hourly',
+    schedule_interval='0 9,15 * * *',
+    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
+    catchup=False,
+) as dag_hour:
+
+    run_hour_weather_pipeline_task = PythonOperator(
+        task_id='run_hour_weather_pipeline',
+        python_callable=run_hour_weather_pipeline_wrapper,
+    )
+
+    run_hour_weather_pipeline_task
+
+# DAG for minutely pipeline runs
+with DAG(
+    'minutely_weather_pipeline',
+    default_args=default_args,
+    description='A DAG to run the weather data pipeline minutely',
+    schedule_interval='* * * * *',
+    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
+    catchup=False,
+) as dag_minutely:
+
+    run_minutely_weather_pipeline_task = PythonOperator(
+        task_id='run_minutely_weather_pipeline',
+        python_callable=run_minutely_weather_pipeline_wrapper,
+    )
+
+    run_minutely_weather_pipeline_task

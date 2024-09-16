@@ -6,6 +6,7 @@ COPY ./api/requirements.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY ./model/.gitkeep /app/model/.gitkeep
 COPY ./config.json /app/config.json
 COPY ./database /app/database
 COPY ./preparation /app/preparation

@@ -1,5 +1,6 @@
 from data_pipeline.pipeline_manager import DataPipeline
-from utils.ELTL import OpenWeatherCurrentAirPollution, OpenWeatherCurrentWeather
+from utils.ELTL import OpenWeatherCurrentAirPollution, OpenWeatherHourWeather, \
+    OpenWeatherCurrentWeather, OpenWeatherDailyWeather
 
 
 def run_air_pollution_pipeline():
@@ -8,6 +9,14 @@ def run_air_pollution_pipeline():
 
 def run_weather_pipeline():
     weather_manager = DataPipeline(OpenWeatherCurrentWeather())
+    weather_manager.run()
+
+def run_hour_weather_pipeline():
+    weather_manager = DataPipeline(OpenWeatherHourWeather())
+    weather_manager.run()
+
+def run_daily_weather_pipeline():
+    weather_manager = DataPipeline(OpenWeatherDailyWeather())
     weather_manager.run()
 
 
