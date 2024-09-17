@@ -121,6 +121,7 @@ services:
     volumes:
       - ./api/app.py:/app/app.py
       - ./api/dash_app.py:/app/dash_app.py
+      - ./model:/app/model
     command: ["/bin/bash", "-c", "/app/start.sh"]
     healthcheck:
       test: [ "CMD", "python", "-c", "import requests; exit(0) if requests.get('http://localhost:8000/health').text == 'OK' else exit(1)" ]

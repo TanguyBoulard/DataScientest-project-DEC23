@@ -89,7 +89,7 @@ def get_rain_prediction(token, city):
     try:
         params = {'city': city, 'date': tomorrow}
         prediction = get_data(BASE_URL, 'predict', token, params)
-        return html.P(f"Rain prediction for tomorrow ({tomorrow}): {prediction['rain_tomorrow']}")
+        return html.P(f"Rain prediction for tomorrow ({tomorrow}) at {city}: {prediction['rain_tomorrow']}")
     except requests.RequestException as e:
         print(f"Error fetching prediction: {e}")
         return html.P(f"Unable to fetch rain prediction: {str(e)}")

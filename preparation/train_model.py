@@ -1,11 +1,3 @@
-"""
-Weather Prediction Model Training Script
-
-This script trains a Random Forest Classifier to predict rain for the next day
-based on weather data. It uses data from a PostgreSQL database, preprocesses it,
-performs hyperparameter tuning, and saves the best model.
-"""
-
 import os
 from typing import Tuple, List
 
@@ -15,9 +7,12 @@ from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import make_scorer, f1_score
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.pipeline import Pipeline as ImbPipeline
 import warnings
 
 from database.postgresql_functools import PostgresManager
@@ -59,7 +54,7 @@ def split_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series,
     """
     X = df.drop(['rain_tomorrow', 'date'], axis=1)
     y = df['rain_tomorrow']
-    return train_test_split(X, y, test_size=0.2)
+    return train_test_split(X, y, test_size=0.2, stratify=y)
 
 
 def get_column_types(X: pd.DataFrame) -> Tuple[List[str], List[str]]:
@@ -98,20 +93,35 @@ def create_preprocessor(numerical_columns: List[str], categorical_columns: List[
     ])
 
 
-def create_model_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
+def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
     """
-    Create the full model pipeline including preprocessor and classifier.
+    Create the full model pipeline including preprocessor, oversampler, and classifier.
 
     :param preprocessor: Preprocessor for the data.
     :return: Full model pipeline.
     """
-    return Pipeline([
+    return ImbPipeline([
         ('preprocessor', preprocessor),
-        ('classifier', RandomForestClassifier(random_state=42))
+        ('oversampler', RandomOverSampler()),
+        ('classifier', RandomForestClassifier())
     ])
 
 
-def perform_grid_search(pipeline: Pipeline, X_train: pd.DataFrame, y_train: pd.Series) -> GridSearchCV:
+def custom_f1_score(y_true, y_pred):
+    """
+    Custom F1 score that handles string labels.
+
+    :param y_true: True labels
+    :param y_pred: Predicted labels
+    :return: F1 score
+    """
+    le = LabelEncoder()
+    y_true_encoded = le.fit_transform(y_true)
+    y_pred_encoded = le.transform(y_pred)
+    return f1_score(y_true_encoded, y_pred_encoded, pos_label=1)
+
+
+def perform_grid_search(pipeline: ImbPipeline, X_train: pd.DataFrame, y_train: pd.Series) -> GridSearchCV:
     """
     Perform grid search for hyperparameter tuning.
 
@@ -121,13 +131,14 @@ def perform_grid_search(pipeline: Pipeline, X_train: pd.DataFrame, y_train: pd.S
     :return: Fitted grid search object
     """
     param_grid = {
-        'classifier__n_estimators': [100],
-        'classifier__max_depth': [2],
-        'classifier__min_samples_split': [2],
-        'classifier__min_samples_leaf': [1]
+        'classifier__n_estimators': [100, 200],
+        'classifier__max_depth': [None, 10, 20],
+        'classifier__min_samples_split': [2, 5],
+        'classifier__min_samples_leaf': [1, 2]
     }
 
-    grid_search = GridSearchCV(pipeline, param_grid, cv=5, n_jobs=-1, scoring='accuracy')
+    custom_scorer = make_scorer(custom_f1_score)
+    grid_search = GridSearchCV(pipeline, param_grid, cv=5, n_jobs=-1, scoring=custom_scorer)
     grid_search.fit(X_train, y_train)
     return grid_search
 

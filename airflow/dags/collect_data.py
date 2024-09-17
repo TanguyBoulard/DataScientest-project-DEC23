@@ -2,7 +2,6 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from pendulum import timezone
-import pendulum
 
 default_args = {
     'owner': 'airflow',
@@ -14,15 +13,19 @@ default_args = {
 }
 
 def get_previous_month():
-    today = pendulum.now(timezone('Australia/Sydney'))
+    today = datetime.now()
     first_of_month = today.replace(day=1)
-    last_month = first_of_month.subtract(days=1)
-    return last_month.format('YYYYMM')
+    last_month = first_of_month - timedelta(days=1)
+    return last_month.strftime('%Y%m')
 
 def scrape_weather_data_wrapper():
     from preparation.data_from_web_scrapping import scrap_weather_data
     dates_to_scrape = [get_previous_month()]
     scrap_weather_data(dates_to_scrape)
+
+def retrain_model_wrapper():
+    from preparation.train_model import train_model
+    train_model()
 
 def run_daily_weather_pipeline_wrapper():
     from data_pipeline.pipeline import run_daily_weather_pipeline
@@ -43,12 +46,19 @@ with DAG(
     description='A DAG to scrape weather data monthly',
     schedule_interval='0 0 1 * *',
     start_date=datetime(2024, 9, 10),
-    catchup=False,
+    catchup=True,
 ) as dag_monthly:
     scrape_weather_data_task = PythonOperator(
         task_id='scrape_weather_data',
         python_callable=scrape_weather_data_wrapper,
     )
+
+    retrain_model_task = PythonOperator(
+        task_id='retrain_model',
+        python_callable=retrain_model_wrapper,
+    )
+
+    scrape_weather_data_task >> retrain_model_task
 
 # DAG for hour pipeline runs
 with DAG(
