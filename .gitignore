@@ -11,3 +11,5 @@ venv/
 /database/mongo_data/
 /airflow/logs/*
 !/airflow/logs/.gitkeep
+/model/*
+!/model/.gitkeep

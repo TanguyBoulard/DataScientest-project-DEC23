@@ -6,8 +6,8 @@ COPY requirements.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY ./data/csv/weatherAUS.csv /app/data/csv/weatherAUS.csv
 COPY ./config.json /app/config.json
-COPY ./database /app/database
 COPY ./preparation /app/preparation
 COPY ./data_pipeline /app/data_pipeline
 COPY ./utils /app/utils

@@ -12,8 +12,27 @@ from datetime import datetime, timedelta
 from typing import List
 import pandas as pd
 from bs4 import BeautifulSoup
+
 from database.postgresql_functools import PostgresManager
 from utils.df_to_kaggle_format import transform_to_kaggle_format
+
+
+def get_previous_month() -> str:
+    """
+    :return: previous month in the format 'YYYYMM'
+    """
+    today = datetime.now()
+    first_of_month = today.replace(day=1)
+    last_month = first_of_month - timedelta(days=1)
+    return last_month.strftime('%Y%m')
+
+
+def get_last_twelve_months() -> List[str]:
+    """
+    :return: List of the last 12 months in the format 'YYYYMM' from the current date
+    """
+    current_date = datetime.now()
+    return [(current_date - timedelta(days=30 * i)).strftime('%Y%m') for i in range(12)]
 
 
 def generate_urls(dates: List[str], locations: List[str]) -> List[str]:
@@ -51,8 +70,7 @@ def fetch_page_content(url: str) -> Optional[BeautifulSoup]:
         bs = BeautifulSoup(response.content, 'lxml')
         return bs
     except requests.RequestException as e:
-        # Print the error if request fails
-        print(f"Error fetching URL {url}: {e}")
+        # If request fails pass
         return None
 
 
@@ -150,8 +168,13 @@ def aggregate_weather_data(urls: List[str]) -> pd.DataFrame:
 def scrap_weather_data(dates_to_scrape: List[str]) -> None:
     """
     Scrapes the Australian Bureau of Meteorology website for weather data
-    :param dates_to_scrape: Define the dates to scrape: <year><month>
+    :param dates_to_scrape: List of dates to scrape in the format 'YYYYMM'
     """
+    load_dotenv()
+
+    # Database connection
+    postgres = PostgresManager()
+
     # Define the locations to scrape: <location>: <location_id_on_website>
     locations_to_scrape = {'Canberra': '2801',
                            'Sydney': '2124',
@@ -177,11 +200,4 @@ def scrap_weather_data(dates_to_scrape: List[str]) -> None:
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    postgres = PostgresManager()
-
-    # Calculate the last 12 months from the current date
-    current_date = datetime.now()
-    dates_to_scrape = [(current_date - timedelta(days=30 * i)).strftime('%Y%m') for i in range(12)]
-
-    scrap_weather_data(dates_to_scrape)
+    scrap_weather_data(get_last_twelve_months())

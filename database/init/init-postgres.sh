@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "Starting PostgreSQL initialization script..."
-
 # Function to hash password using openssl
 hash_password() {
     password="$1"
@@ -11,7 +9,6 @@ hash_password() {
     echo "$hashed:$salt"
 }
 
-echo "Hashing passwords..."
 # Hash passwords
 hashed_api_admin_password=$(hash_password "$API_ADMIN_PASSWORD")
 hashed_api_password=$(hash_password "$API_PASSWORD")
@@ -20,7 +17,6 @@ hashed_api_password=$(hash_password "$API_PASSWORD")
 hashed_api_admin_password_escaped=$(echo "$hashed_api_admin_password" | sed 's/[\/&]/\\&/g')
 hashed_api_password_escaped=$(echo "$hashed_api_password" | sed 's/[\/&]/\\&/g')
 
-echo "Replacing placeholders in SQL file..."
 # Replace placeholders in SQL file
 sed -e "s/\${PG_USER}/$PG_USER/" \
     -e "s/\${PG_PASSWORD}/$PG_PASSWORD/" \
@@ -36,11 +32,9 @@ sed -e "s/\${PG_USER}/$PG_USER/" \
     -e "s/\${AIRFLOW_ADMIN_PASSWORD}/$AIRFLOW_ADMIN_PASSWORD/" \
     /tmp/init-postgres-tmp.sql > /tmp/init-postgres.sql
 
-echo "Executing SQL file..."
 # Execute SQL file
 if psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f /tmp/init-postgres.sql; then
-    echo "PostgreSQL initialization completed successfully."
+  exit 0
 else
-    echo "Error: PostgreSQL initialization failed."
     exit 1
 fi

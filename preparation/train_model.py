@@ -29,6 +29,7 @@ def load_data(postgres: PostgresManager) -> pd.DataFrame:
     """
     df = pd.read_sql_table('australian_meteorology_weather', postgres.engine)
     df = df.drop(columns=['id'])
+    df = df.drop_duplicates()
     df.columns = [str(col).strip("'\"") for col in df.columns]
     return df
 

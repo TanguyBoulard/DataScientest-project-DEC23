@@ -54,4 +54,3 @@ if __name__ == '__main__':
     today = (datetime.now()).strftime('%Y-%m-%d')
     params = {'city': 'Brisbane City', 'date': today}
     prediction = get_data(base_url, 'predict', token, params)
-    print(prediction)

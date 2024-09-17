@@ -9,6 +9,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 120
     AIRFLOW_UID: "${AIRFLOW_UID}"
     AIRFLOW_GID: "${AIRFLOW_GID}"
+    TZ: Europe/Paris
     PYTHONPATH: /opt/airflow
     OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
     MONGO_USER: ${MONGO_USER}
@@ -21,13 +22,16 @@ x-airflow-common: &airflow-common
     POSTGRES_DB: ${POSTGRES_DB}
     PG_HOST: postgres
     PG_PORT: ${PG_PORT}
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:- pymongo}
+    ROOT_PATH: /opt/airflow
   volumes:
+    - ./requirements.txt:/requirements.txt
+    - ./config.json:/opt/airflow/config.json
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./preparation:/opt/airflow/preparation
     - ./data_pipeline:/opt/airflow/data_pipeline
     - ./database:/opt/airflow/database
+    - ./model:/opt/airflow/model
     - ./utils:/opt/airflow/utils
   command: ["/bin/bash", "-c", "sudo chmod -R 777 /opt/airflow/logs && sudo chmod -R 777 /opt/airflow/dags"]
   depends_on:
@@ -50,7 +54,7 @@ services:
       - "${MONGO_PORT}:27017"
     volumes:
       - ./database/init/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-#      - ./database/mongo_data:/data/db
+      - ./database/mongo_data:/data/db
     networks:
       - backend
     healthcheck:
@@ -83,7 +87,7 @@ services:
     volumes:
       - ./database/init/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
       - ./database/init/init-postgres.sql:/tmp/init-postgres-tmp.sql
-#      - ./database/postgres_data:/var/lib/postgresql/data
+      - ./database/postgres_data:/var/lib/postgresql/data
     networks:
       - backend
     healthcheck:
@@ -119,6 +123,7 @@ services:
     ports:
       - "${API_PORT}:8000"
     volumes:
+      - ./database:/app/database
       - ./api/app.py:/app/app.py
       - ./api/dash_app.py:/app/dash_app.py
       - ./model:/app/model
@@ -140,7 +145,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    command: webserver
+    command: bash -c "pip install -r /requirements.txt && airflow webserver"
     environment:
       <<: *airflow-common-env
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
@@ -158,7 +163,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    command: scheduler
+    command: bash -c "pip install -r /requirements.txt && airflow scheduler"
     healthcheck:
       test: [ "CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\"" ]
       interval: 10s
