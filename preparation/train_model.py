@@ -108,7 +108,7 @@ def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
     ])
 
 
-def custom_f1_score(y_true, y_pred):
+def label_f1_score(y_true, y_pred):
     """
     Custom F1 score that handles string labels.
 
@@ -138,7 +138,7 @@ def perform_grid_search(pipeline: ImbPipeline, X_train: pd.DataFrame, y_train: p
         'classifier__min_samples_leaf': [1, 2]
     }
 
-    custom_scorer = make_scorer(custom_f1_score)
+    custom_scorer = make_scorer(label_f1_score)
     grid_search = GridSearchCV(pipeline, param_grid, cv=5, n_jobs=-1, scoring=custom_scorer)
     grid_search.fit(X_train, y_train)
     return grid_search

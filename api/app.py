@@ -121,13 +121,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return Token(access_token=access_token)
 
 
-@app.get("/cities")
+@app.get('/cities')
 async def get_cities():
     cities = postgres_manager.fetch_table(City)
-    return [{"name": city.name, "id": city.id} for city in cities]
+    return [{'name': city.name, 'id': city.id} for city in cities]
 
 
-@app.get("/weather")
+@app.get('/weather')
 async def get_weather(city: str, start_date: str, end_date: str):
     weather_data = postgres_manager.session.query(AustralianMeteorologyWeather).filter(
         AustralianMeteorologyWeather.location == city,
@@ -135,13 +135,13 @@ async def get_weather(city: str, start_date: str, end_date: str):
     ).all()
 
     return [{
-        "date": w.date,
-        "max_temp": w.max_temp,
-        "min_temp": w.min_temp,
-        "rainfall": w.rainfall,
-        "sunshine": w.sunshine,
-        "humidity_9am": w.humidity_9am,
-        "humidity_3pm": w.humidity_3pm
+        'date': w.date,
+        'max_temp': w.max_temp,
+        'min_temp': w.min_temp,
+        'rainfall': w.rainfall,
+        'sunshine': w.sunshine,
+        'humidity_9am': w.humidity_9am,
+        'humidity_3pm': w.humidity_3pm
     } for w in weather_data]
 
 
@@ -162,4 +162,4 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
 
     return {'city': city, 'date': date, 'rain_tomorrow': prediction[0]}
 
-app.mount("/dashboard", WSGIMiddleware(dash_app.server))
+app.mount('/dashboard', WSGIMiddleware(dash_app.server))

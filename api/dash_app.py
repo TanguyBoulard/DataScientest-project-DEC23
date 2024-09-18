@@ -68,7 +68,7 @@ def create_weather_graph(df, city):
     for column in ['max_temp', 'min_temp', 'rainfall', 'humidity_9am', 'humidity_3pm']:
         fig.add_trace(go.Scatter(x=df['date'], y=df[column], name=column.replace('_', ' ').title()))
     fig.update_layout(
-        title=f'Weather Data for {city}',
+        title=f"Weather Data for {city}",
         xaxis_title='Date',
         yaxis_title='Value',
         legend_title='Parameter'
