@@ -219,12 +219,12 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
         prediction_data = pd.DataFrame([weather_data])
 
         # Get model from cache or load from file
-        model = redis_manager.get_model('random_forest_model')
+        model = redis_manager.get_model('model')
         if model is None:
-            model_path = os.path.join(root_path, 'model', 'random_forest_model.joblib')
+            model_path = os.path.join(root_path, 'model', 'model.joblib')
             try:
                 model = joblib.load(model_path)
-                redis_manager.set_model('random_forest_model', model, expiration=86400)
+                redis_manager.set_model('model', model, expiration=86400)
             except FileNotFoundError:
                 raise HTTPException(status_code=500, detail='Model file not found. Please ensure the model is trained.')
 

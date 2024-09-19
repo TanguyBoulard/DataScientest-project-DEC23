@@ -5,7 +5,7 @@ python /app/preparation/data_from_kaggle.py
 
 python /app/preparation/train_model.py
 timeout=500
-while [ ! -f /app/model/random_forest_model.joblib ]; do
+while [ ! -f /app/model/model.joblib ]; do
     sleep 30
     timeout=$((timeout - 10))
     if [ $timeout -le 0 ]; then

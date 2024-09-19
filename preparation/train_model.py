@@ -158,7 +158,7 @@ def save_model(model: GridSearchCV, path: str, redis_manager: RedisManager) -> N
         joblib.dump(best_model, path)
 
         try:
-            redis_manager.set_model('random_forest_model', best_model, expiration=86400)
+            redis_manager.set_model('model', best_model, expiration=86400)
         except Exception as e:
             raise Exception(f"An error occurred while saving the model to Redis: {str(e)}")
 
@@ -195,7 +195,7 @@ def train_model() -> None:
     grid_search = perform_grid_search(pipeline, X_train, y_train)
 
     # Save the best model
-    best_model_path = os.path.join(root_path, 'model', 'random_forest_model.joblib')
+    best_model_path = os.path.join(root_path, 'model', 'model.joblib')
     save_model(grid_search, best_model_path, redis)
 
 
