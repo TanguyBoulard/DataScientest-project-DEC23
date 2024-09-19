@@ -16,3 +16,4 @@ scikit-learn
 SQLAlchemy
 uvicorn
 imblearn
+redis

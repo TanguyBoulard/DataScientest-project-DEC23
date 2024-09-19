@@ -3,8 +3,11 @@
 import os
 
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, \
-    Float, Date, Time, DateTime, func
+    Float, Date, Time, DateTime, func, text
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+
+load_dotenv()
 
 Base = declarative_base()
 
@@ -190,6 +193,15 @@ class PostgresManager:
         )
         self.session = sessionmaker(bind=self.engine)()
 
+    def health_check(self) -> bool:
+        """Perform a health check on the PostgreSQL connection"""
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            return False
+
     def add_record(self, record):
         """ Add a record to a table """
         self.session.add(record)
@@ -213,6 +225,13 @@ class PostgresManager:
         return (self.session.query(City)
                 .order_by(func.abs(City.latitude - lat), func.abs(City.longitude - lon))
                 .first())
+
+    def fetch_weather_data(self, city: str, start_date: str, end_date: str):
+        """Fetch weather data for a specific city and date range"""
+        return self.session.query(AustralianMeteorologyWeather).filter(
+            AustralianMeteorologyWeather.location == city,
+            AustralianMeteorologyWeather.date.between(start_date, end_date)
+        ).order_by(AustralianMeteorologyWeather.date).all()
 
 
 if __name__ == "__main__":

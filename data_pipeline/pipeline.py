@@ -21,5 +21,4 @@ def run_daily_weather_pipeline():
 
 
 if __name__ == '__main__':
-    run_air_pollution_pipeline()
     run_weather_pipeline()

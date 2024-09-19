@@ -14,9 +14,10 @@ import pandas as pd
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.responses import PlainTextResponse
 
-from database.postgresql_functools import PostgresManager, City, APIUsers, \
-    AustralianMeteorologyWeather
-from dash_app import dash_app
+from database.mongodb_functools import MongoDBManager
+from database.postgresql_functools import PostgresManager, City, APIUsers
+from api.dash_app import dash_app
+from database.redis_functools import RedisManager
 
 load_dotenv()
 root_path = os.getenv('ROOT_PATH')
@@ -28,8 +29,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 app = FastAPI()
 
 postgres_manager = PostgresManager()
-
-model_pipeline = joblib.load(os.path.join(root_path, 'model', 'random_forest_model.joblib'))
+mongo_manager = MongoDBManager()
+redis_manager = RedisManager()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
@@ -99,7 +100,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 async def health_check():
     try:
         # Check database connection
-        postgres_manager.engine.connect()
+        assert(postgres_manager.health_check())
+        assert(mongo_manager.health_check())
+        assert(redis_manager.health_check())
         return 'OK'
     except Exception:
         raise HTTPException(status_code=503, detail='Service Unavailable')
@@ -123,43 +126,123 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @app.get('/cities')
 async def get_cities():
+    # Try to get cities from Redis cache
+    cities_cache = redis_manager.get('all_cities')
+
+    if cities_cache:
+        return cities_cache
+
+    # If not in cache, fetch from database
     cities = postgres_manager.fetch_table(City)
-    return [{'name': city.name, 'id': city.id} for city in cities]
+    cities_data = [{'name': city.name, 'id': city.id} for city in cities]
+
+    # Cache the result in Redis
+    redis_manager.set('all_cities', cities_data, expiration=86400)
+
+    return cities_data
 
 
 @app.get('/weather')
 async def get_weather(city: str, start_date: str, end_date: str):
-    weather_data = postgres_manager.session.query(AustralianMeteorologyWeather).filter(
-        AustralianMeteorologyWeather.location == city,
-        AustralianMeteorologyWeather.date.between(start_date, end_date)
-    ).all()
+    try:
+        # Validate dates
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d')
+        if start > end:
+            raise ValueError('start_date must be before or equal to end_date')
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    return [{
-        'date': w.date,
-        'max_temp': w.max_temp,
-        'min_temp': w.min_temp,
-        'rainfall': w.rainfall,
-        'sunshine': w.sunshine,
-        'humidity_9am': w.humidity_9am,
-        'humidity_3pm': w.humidity_3pm
-    } for w in weather_data]
+    # Generate cache key
+    cache_key = f"weather:{city}:{start_date}:{end_date}"
+
+    # Try to get weather data from Redis cache
+    cached_weather = redis_manager.get(cache_key)
+
+    if cached_weather:
+        return cached_weather
+
+    # If not in cache, fetch from database
+    results = postgres_manager.fetch_weather_data(city, start_date, end_date)
+    weather_data = [{
+        'date': row.date,
+        'max_temp': row.max_temp,
+        'min_temp': row.min_temp,
+        'rainfall': row.rainfall,
+        'humidity_9am': row.humidity_9am,
+        'humidity_3pm': row.humidity_3pm
+    } for row in results]
+
+    if not weather_data:
+        raise HTTPException(status_code=404, detail=f"No weather data found for {city} between {start_date} and {end_date}")
+
+    # Cache the result in Redis
+    redis_manager.set(cache_key, weather_data, expiration=3600)
+
+    return weather_data
 
 
 @app.get('/predict')
 async def predict_rain(date: str, city: str, current_user: User = Depends(get_current_user)):
-    previous_day = (datetime.strptime(date, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
-    weather_data_df = pd.read_sql_query(
-        'SELECT * '
-        'FROM australian_meteorology_weather '
-        f"WHERE location = '{city}' AND date = '{previous_day}'",
-        postgres_manager.engine) \
-        .drop(columns=['id'])
-    if weather_data_df.empty:
-        raise HTTPException(status_code=404, detail='Data not found')
+    try:
+        # Validate date and get previous day
+        try:
+            prediction_date = datetime.strptime(date, '%Y-%m-%d')
+            previous_day = (prediction_date - timedelta(days=1)).strftime('%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail='Invalid date format. Use YYYY-MM-DD.')
 
-    weather_data_df['rain_today'] = 'Yes' if weather_data_df['rainfall'].iloc[0] >= 1 else 'No'
-    prediction = model_pipeline.predict(weather_data_df)
+        # Check if city exists
+        if not postgres_manager.fetch_record(City, {'name': city}):
+            raise HTTPException(status_code=404, detail=f"City '{city}' not found.")
 
-    return {'city': city, 'date': date, 'rain_tomorrow': prediction[0]}
+        # Try to get weather data from cache
+        cache_key = f"weather_data:{city}:{previous_day}"
+        weather_data = redis_manager.get(cache_key)
+
+        if not weather_data:
+            # If not in cache, fetch from database
+            weather_data_df = pd.read_sql_query(
+                'SELECT * '
+                'FROM australian_meteorology_weather '
+                f"WHERE location = '{city}' AND date = '{previous_day}';",
+                postgres_manager.engine).drop(columns=['id', 'date'])
+
+            if weather_data_df.empty:
+                raise HTTPException(status_code=404, detail=f"No weather data found for {city} on {previous_day}.")
+
+            weather_data = weather_data_df.to_dict('records')[0]
+            redis_manager.set(cache_key, weather_data, expiration=3600)
+
+        # Prepare data for prediction
+        weather_data['rain_today'] = 'Yes' if weather_data.get('rainfall', 0) >= 1 else 'No'
+        prediction_data = pd.DataFrame([weather_data])
+
+        # Get model from cache or load from file
+        model = redis_manager.get_model('random_forest_model')
+        if model is None:
+            model_path = os.path.join(root_path, 'model', 'random_forest_model.joblib')
+            try:
+                model = joblib.load(model_path)
+                redis_manager.set_model('random_forest_model', model, expiration=86400)
+            except FileNotFoundError:
+                raise HTTPException(status_code=500, detail='Model file not found. Please ensure the model is trained.')
+
+        # Make prediction
+        prediction = model.predict(prediction_data)
+        probability = float(model.predict_proba(prediction_data)[0][1])  # Probability of positive class
+
+        return {
+            'city': city,
+            'date': date,
+            'rain_tomorrow': 'Yes' if prediction[0] == 'yes' else 'No',
+            'probability': probability
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'An unexpected error occurred: {str(e)}')
+
 
 app.mount('/dashboard', WSGIMiddleware(dash_app.server))

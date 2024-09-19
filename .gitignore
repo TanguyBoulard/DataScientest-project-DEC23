@@ -9,6 +9,7 @@ venv/
 /.ipynb_checkpoints/
 /database/postgres_data/
 /database/mongo_data/
+/database/redis_data/
 /airflow/logs/*
 !/airflow/logs/.gitkeep
 /model/*

@@ -3,6 +3,10 @@
 
 import os
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class MongoDBManager:
@@ -19,6 +23,14 @@ class MongoDBManager:
         )
 
         self.db = self.client[self.dbname]
+
+    def health_check(self) -> bool:
+        """Perform a health check on the MongoDB connection"""
+        try:
+            self.client.admin.command('ismaster')
+            return True
+        except ConnectionFailure:
+            return False
 
     def create_collection(self, collection_name):
         """ Create a collection in a database """

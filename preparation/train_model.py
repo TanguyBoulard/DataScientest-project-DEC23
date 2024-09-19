@@ -16,6 +16,7 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 import warnings
 
 from database.postgresql_functools import PostgresManager
+from database.redis_functools import RedisManager
 
 warnings.filterwarnings('ignore')
 
@@ -132,28 +133,35 @@ def perform_grid_search(pipeline: ImbPipeline, X_train: pd.DataFrame, y_train: p
     :return: Fitted grid search object
     """
     param_grid = {
-        'classifier__n_estimators': [100, 200],
-        'classifier__max_depth': [None, 10, 20],
-        'classifier__min_samples_split': [2, 5],
-        'classifier__min_samples_leaf': [1, 2]
+        'classifier__n_estimators': [100],
+        'classifier__max_depth': [10],
+        'classifier__min_samples_split': [2]
     }
 
     custom_scorer = make_scorer(label_f1_score)
-    grid_search = GridSearchCV(pipeline, param_grid, cv=5, n_jobs=-1, scoring=custom_scorer)
+    grid_search = GridSearchCV(pipeline, param_grid, cv=3, n_jobs=-1, scoring=custom_scorer)
     grid_search.fit(X_train, y_train)
     return grid_search
 
 
-def save_model(model: GridSearchCV, path: str) -> None:
+def save_model(model: GridSearchCV, path: str, redis_manager: RedisManager) -> None:
     """
     Save the best model from grid search.
 
     :param model: Fitted grid search object.
     :param path: Path to save the model.
+    :param redis_manager: RedisManager for saving the model to Redis.
     :raise Exception: If an error occurs while saving the model.
     """
+    best_model = model.best_estimator_
     try:
-        joblib.dump(model.best_estimator_, path)
+        joblib.dump(best_model, path)
+
+        try:
+            redis_manager.set_model('random_forest_model', best_model, expiration=86400)
+        except Exception as e:
+            raise Exception(f"An error occurred while saving the model to Redis: {str(e)}")
+
     except Exception as e:
         raise Exception(f"An error occurred while saving the model: {str(e)}")
 
@@ -167,6 +175,7 @@ def train_model() -> None:
 
     # Database connection
     postgres = PostgresManager()
+    redis = RedisManager()
 
     # Load and preprocess data
     df = load_data(postgres)
@@ -187,7 +196,7 @@ def train_model() -> None:
 
     # Save the best model
     best_model_path = os.path.join(root_path, 'model', 'random_forest_model.joblib')
-    save_model(grid_search, best_model_path)
+    save_model(grid_search, best_model_path, redis)
 
 
 if __name__ == '__main__':

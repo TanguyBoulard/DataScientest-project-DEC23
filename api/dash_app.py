@@ -5,7 +5,6 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 import pandas as pd
-import requests
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
@@ -25,6 +24,7 @@ PASSWORD = os.getenv('API_PASSWORD')
 # Initialize token as None
 token = None
 
+
 # Function to get token
 def get_api_token(base_url, username, password):
     global token
@@ -43,6 +43,7 @@ def get_api_token(base_url, username, password):
                 time.sleep(5)
     raise RequestException('Unable to fetch token')
 
+
 # Layout
 dash_app.layout = html.Div([
     html.H1('Weather Dashboard'),
@@ -58,10 +59,14 @@ dash_app.layout = html.Div([
     html.Div([html.H3('Rain Prediction for Tomorrow'), html.Div(id='rain-prediction')])
 ])
 
+
 def fetch_weather_data(token, city, start_date, end_date):
     params = {'city': city, 'start_date': start_date, 'end_date': end_date}
     response = get_data(BASE_URL, 'weather', token, params)
+    if not response:
+        raise Exception("No weather data received")
     return pd.DataFrame(response)
+
 
 def create_weather_graph(df, city):
     fig = go.Figure()
@@ -75,7 +80,10 @@ def create_weather_graph(df, city):
     )
     return fig
 
+
 def calculate_weather_stats(df):
+    if df.empty:
+        raise Exception("No weather data available for statistics")
     return [
         html.P(f"Average Maximum Temperature: {df['max_temp'].mean():.2f}°C"),
         html.P(f"Average Minimum Temperature: {df['min_temp'].mean():.2f}°C"),
@@ -84,22 +92,26 @@ def calculate_weather_stats(df):
         html.P(f"Average Humidity at 3PM: {df['humidity_3pm'].mean():.2f}%")
     ]
 
+
 def get_rain_prediction(token, city):
     tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    try:
-        params = {'city': city, 'date': tomorrow}
-        prediction = get_data(BASE_URL, 'predict', token, params)
-        return html.P(f"Rain prediction for tomorrow ({tomorrow}) at {city}: {prediction['rain_tomorrow']}")
-    except requests.RequestException as e:
-        return html.P(f"Unable to fetch rain prediction: {str(e)}")
+    params = {'city': city, 'date': tomorrow}
+    prediction = get_data(BASE_URL, 'predict', token, params)
+    return html.P(
+        f"Rain prediction for tomorrow ({tomorrow}) at {city}: {prediction['rain_tomorrow']}")
+
 
 @dash_app.callback(
     Output('city-dropdown', 'options'),
     Input('city-dropdown', 'search_value')
 )
 def update_cities(search_value):
-    cities = get_data(BASE_URL, 'cities', '', {})
-    return [{'label': city['name'], 'value': city['name']} for city in cities]
+    try:
+        cities = get_data(BASE_URL, 'cities', '', {})
+        return [{'label': city['name'], 'value': city['name']} for city in cities]
+    except Exception:
+        return []
+
 
 @dash_app.callback(
     [Output('weather-graph', 'figure'),
@@ -110,9 +122,26 @@ def update_cities(search_value):
      Input('date-range', 'end_date')]
 )
 def update_dashboard(city, start_date, end_date):
-    api_token = get_api_token(BASE_URL, USERNAME, PASSWORD)
-    df = fetch_weather_data(api_token, city, start_date, end_date)
-    graph = create_weather_graph(df, city)
-    stats = calculate_weather_stats(df)
-    prediction = get_rain_prediction(api_token, city)
+    graph = go.Figure()  # Empty figure as fallback
+    stats = html.P("No weather statistics available.")
+    prediction = html.P("No rain prediction available.")
+
+    try:
+        api_token = get_api_token(BASE_URL, USERNAME, PASSWORD)
+
+        try:
+            df = fetch_weather_data(api_token, city, start_date, end_date)
+            graph = create_weather_graph(df, city)
+            stats = calculate_weather_stats(df)
+        except Exception:
+            pass  # Keep default graph and stats
+
+        try:
+            prediction = get_rain_prediction(api_token, city)
+        except Exception:
+            pass  # Keep default prediction
+
+    except Exception:
+        pass  # All outputs will use their default values
+
     return graph, stats, prediction
