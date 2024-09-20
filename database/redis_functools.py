@@ -41,19 +41,19 @@ class RedisManager:
         """Delete a key from Redis"""
         self.redis_client.delete(key)
 
-    def set_model(self, key: str, model: Any, expiration: Optional[int] = None):
-        """Set a scikit-learn model in Redis"""
-        model_bytes = io.BytesIO()
-        joblib.dump(model, model_bytes)
-        model_bytes.seek(0)
-        self.redis_client.set(key, model_bytes.getvalue(), ex=expiration)
+    def set_serializable_object(self, key: str, obj: Any, expiration: Optional[int] = None):
+        """Set a serializable object in Redis"""
+        obj_bytes = io.BytesIO()
+        joblib.dump(obj, obj_bytes)
+        obj_bytes.seek(0)
+        self.redis_client.set(key, obj_bytes.getvalue(), ex=expiration)
 
-    def get_model(self, key: str) -> Optional[Any]:
-        """Get a scikit-learn model from Redis"""
-        model_bytes = self.redis_client.get(key)
-        if model_bytes:
-            return joblib.load(io.BytesIO(model_bytes))
-        return None
+    def get_serializable_object(self, key: str) -> Any:
+        """Get a serializable object from Redis"""
+        obj_bytes = self.redis_client.get(key)
+        if obj_bytes is None:
+            return None
+        return joblib.load(io.BytesIO(obj_bytes))
 
 if __name__ == '__main__':
     redis_manager = RedisManager()

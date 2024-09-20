@@ -3,10 +3,10 @@
 python /app/preparation/city_from_openweather.py
 python /app/preparation/data_from_kaggle.py
 
-if [ ! -f /app/model/model.joblib ]; then
+if [ ! -f /app/model/weather_model.joblib ] && [ ! -f /app/model/label_encoder.joblib ]; then
     python /app/preparation/train_model.py
     timeout=500
-    while [ ! -f /app/model/model.joblib ]; do
+    while [ ! -f /app/model/weather_model.joblib ] && [ ! -f /app/model/label_encoder.joblib ]; do
         sleep 30
         timeout=$((timeout - 10))
         if [ $timeout -le 0 ]; then

@@ -5,12 +5,12 @@ import hashlib
 import base64
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import pandas as pd
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.responses import PlainTextResponse
 
@@ -211,28 +211,36 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
             redis_manager.set(cache_key, weather_data, expiration=3600)
 
         # Prepare data for prediction
-        weather_data['rain_today'] = 'Yes' if weather_data.get('rainfall', 0) >= 1 else 'No'
+        weather_data['rain_today'] = 'yes' if weather_data.get('rainfall', 0) >= 1 else 'no'
         prediction_data = pd.DataFrame([weather_data])
 
-        # Get model from cache or load from file
-        model = redis_manager.get_model('model')
-        if model is None:
-            model_path = os.path.join(root_path, 'model', 'model.joblib')
+        # Get model and label encoder from cache or load from file
+        model = redis_manager.get_serializable_object('weather_prediction_model')
+        target_label_encoder = redis_manager.get_serializable_object('weather_label_encoder')
+
+        if model is None or target_label_encoder is None:
+            model_path = os.path.join(root_path, 'model', 'weather_model.joblib')
+            label_encoder_path = os.path.join(root_path, 'model', 'label_encoder.joblib')
             try:
-                model = joblib.load(model_path)
-                redis_manager.set_model('model', model, expiration=86400)
+                if model is None:
+                    model = joblib.load(model_path)
+                    redis_manager.set_model('weather_prediction_model', model, expiration=86400)
+                if target_label_encoder is None:
+                    target_label_encoder = joblib.load(label_encoder_path)
+                    redis_manager.set_model('weather_label_encoder', target_label_encoder, expiration=86400)
             except FileNotFoundError:
-                raise HTTPException(status_code=500, detail='Model file not found. Please ensure the model is trained.')
+                raise HTTPException(status_code=500, detail='Model or label encoder file not found. Please ensure the model is trained.')
 
         # Make prediction
         prediction = model.predict(prediction_data)
-        probability = float(model.predict_proba(prediction_data)[0][1])  # Probability of positive class
+
+        # Decode prediction
+        decoded_prediction = target_label_encoder.inverse_transform(prediction)[0]
 
         return {
             'city': city,
             'date': date,
-            'rain_tomorrow': 'Yes' if prediction[0] == 'yes' else 'No',
-            'probability': probability
+            'rain_tomorrow': decoded_prediction
         }
 
     except HTTPException:

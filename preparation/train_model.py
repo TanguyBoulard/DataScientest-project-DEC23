@@ -1,16 +1,15 @@
 import os
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
+import numpy as np
 import pandas as pd
 import joblib
 from dotenv import load_dotenv
-from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, f1_score
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.pipeline import Pipeline as ImbPipeline
 import warnings
@@ -31,7 +30,6 @@ def load_data(postgres: PostgresManager) -> pd.DataFrame:
     df = pd.read_sql_table('australian_meteorology_weather', postgres.engine)
     df = df.drop(columns=['id'])
     df = df.drop_duplicates()
-    df.columns = [str(col).strip("'\"") for col in df.columns]
     return df
 
 
@@ -44,34 +42,24 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     df['rain_today'] = df['rainfall'].apply(lambda x: 'yes' if x >= 1 else 'no')
     df['rain_tomorrow'] = df['rain_today'].shift(-1).apply(lambda x: 'yes' if x == 'yes' else 'no')
-    return df.dropna(subset=['rain_today', 'rain_tomorrow'])
+    df = df.dropna(subset=['rain_today', 'rain_tomorrow'])
+    return df
 
 
-def split_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """
-    Split the data into features and target, then into training and testing sets.
-
-    :param df: Preprocessed weather data.
-    :return: Tuple of X_train, X_test, y_train, y_test
-    """
-    X = df.drop(['rain_tomorrow', 'date'], axis=1)
-    y = df['rain_tomorrow']
-    return train_test_split(X, y, test_size=0.2, stratify=y)
-
-
-def get_column_types(X: pd.DataFrame) -> Tuple[List[str], List[str]]:
+def get_column_types(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
     """
     Identify numerical and categorical columns in the dataset.
 
-    :param X: Input features.
+    :param df: Input features.
     :return: Tuple of numerical and categorical column names
     """
-    numerical_columns = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_columns = X.select_dtypes(include=['object', 'category']).columns.tolist()
+    numerical_columns = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
     return numerical_columns, categorical_columns
 
 
-def create_preprocessor(numerical_columns: List[str], categorical_columns: List[str]) -> ColumnTransformer:
+def create_preprocessor(numerical_columns: List[str],
+                        categorical_columns: List[str]) -> ColumnTransformer:
     """
     Create a preprocessor for numerical and categorical data.
 
@@ -79,20 +67,23 @@ def create_preprocessor(numerical_columns: List[str], categorical_columns: List[
     :param categorical_columns: List of categorical column names.
     :return: ColumnTransformer for preprocessing.
     """
-    numerical_pipeline = Pipeline([
-        ('imputer', SimpleImputer(strategy='median')),
+    numerical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(missing_values=np.nan, strategy='median')),
         ('scaler', StandardScaler())
     ])
 
-    categorical_pipeline = Pipeline([
-        ('imputer', SimpleImputer(strategy='most_frequent')),
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(missing_values=np.nan, strategy='most_frequent')),
         ('onehot', OneHotEncoder(drop='first', sparse_output=False, handle_unknown='ignore'))
     ])
 
-    return ColumnTransformer([
-        ('numerical', numerical_pipeline, numerical_columns),
-        ('categorical', categorical_pipeline, categorical_columns)
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numerical_transformer, numerical_columns),
+            ('cat', categorical_transformer, categorical_columns),
+        ])
+
+    return preprocessor
 
 
 def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
@@ -104,66 +95,39 @@ def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
     """
     return ImbPipeline([
         ('preprocessor', preprocessor),
-        ('oversampler', RandomOverSampler()),
-        ('classifier', RandomForestClassifier())
+        ('oversampler', RandomOverSampler(random_state=42)),
+        ('classifier', RandomForestClassifier(
+            max_depth=None,
+            min_samples_leaf=4,
+            min_samples_split=9,
+            n_estimators=161,
+            random_state=42
+        ))
     ])
 
 
-def label_f1_score(y_true, y_pred):
+def save_model(ser_obj: Any, path: str, redis_manager: RedisManager, redis_key: str) -> None:
     """
-    Custom F1 score that handles string labels.
+    Save the model or encoder.
 
-    :param y_true: True labels
-    :param y_pred: Predicted labels
-    :return: F1 score
+    :param ser_obj: Model or encoder to save.
+    :param path: Path to save the model or encoder.
+    :param redis_manager: RedisManager for saving to Redis.
+    :param redis_key: Key to use when saving to Redis.
+    :raise Exception: If an error occurs while saving.
     """
-    le = LabelEncoder()
-    y_true_encoded = le.fit_transform(y_true)
-    y_pred_encoded = le.transform(y_pred)
-    return f1_score(y_true_encoded, y_pred_encoded, pos_label=1)
-
-
-def perform_grid_search(pipeline: ImbPipeline, X_train: pd.DataFrame, y_train: pd.Series) -> GridSearchCV:
-    """
-    Perform grid search for hyperparameter tuning.
-
-    :param pipeline: Model pipeline.
-    :param X_train: Training features.
-    :param y_train: Training target.
-    :return: Fitted grid search object
-    """
-    param_grid = {
-        'classifier__n_estimators': [100],
-        'classifier__max_depth': [10],
-        'classifier__min_samples_split': [2]
-    }
-
-    custom_scorer = make_scorer(label_f1_score)
-    grid_search = GridSearchCV(pipeline, param_grid, cv=3, n_jobs=-1, scoring=custom_scorer)
-    grid_search.fit(X_train, y_train)
-    return grid_search
-
-
-def save_model(model: GridSearchCV, path: str, redis_manager: RedisManager) -> None:
-    """
-    Save the best model from grid search.
-
-    :param model: Fitted grid search object.
-    :param path: Path to save the model.
-    :param redis_manager: RedisManager for saving the model to Redis.
-    :raise Exception: If an error occurs while saving the model.
-    """
-    best_model = model.best_estimator_
     try:
-        joblib.dump(best_model, path)
+        joblib.dump(ser_obj, path)
+        print(f"Model/Encoder saved to {path}")
 
         try:
-            redis_manager.set_model('model', best_model, expiration=86400)
+            redis_manager.set_serializable_object(redis_key, ser_obj, expiration=86400)
+            print(f"Model/Encoder saved to Redis with key: {redis_key}")
         except Exception as e:
-            raise Exception(f"An error occurred while saving the model to Redis: {str(e)}")
+            print(f"An error occurred while saving to Redis: {str(e)}")
 
     except Exception as e:
-        raise Exception(f"An error occurred while saving the model: {str(e)}")
+        raise Exception(f"An error occurred while saving: {str(e)}")
 
 
 def train_model() -> None:
@@ -181,22 +145,30 @@ def train_model() -> None:
     df = load_data(postgres)
     df = preprocess_data(df)
 
-    # Split data
-    X_train, X_test, y_train, y_test = split_data(df)
-
     # Get column types
-    numerical_columns, categorical_columns = get_column_types(X_train)
+    numerical_columns, categorical_columns = get_column_types(df)
 
     # Create preprocessor and model pipeline
     preprocessor = create_preprocessor(numerical_columns, categorical_columns)
     pipeline = create_model_pipeline(preprocessor)
 
-    # Perform grid search
-    grid_search = perform_grid_search(pipeline, X_train, y_train)
+    # Prepare data for training
+    X = df.drop(['rain_tomorrow', 'date'], axis=1)
+    y = df['rain_tomorrow']
 
-    # Save the best model
-    best_model_path = os.path.join(root_path, 'model', 'model.joblib')
-    save_model(grid_search, best_model_path, redis)
+    # Encode target variable
+    target_le = LabelEncoder()
+    y = target_le.fit_transform(y)
+
+    # Train model
+    pipeline.fit(X, y)
+
+    # Save the label encoder and the model
+    label_path = os.path.join(root_path, 'model', 'label_encoder.joblib')
+    save_model(target_le, label_path, redis, 'weather_label_encoder')
+
+    model_path = os.path.join(root_path, 'model', 'weather_model.joblib')
+    save_model(pipeline, model_path, redis, 'weather_prediction_model')
 
 
 if __name__ == '__main__':
