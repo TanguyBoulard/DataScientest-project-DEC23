@@ -39,8 +39,9 @@ CREATE TABLE IF NOT EXISTS city (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     country VARCHAR(255),
-    latitude FLOAT NOT NULL UNIQUE,
-    longitude FLOAT NOT NULL UNIQUE
+    latitude FLOAT NOT NULL,
+    longitude FLOAT NOT NULL,
+    UNIQUE (latitude, longitude)
 );
 
 CREATE TABLE IF NOT EXISTS weather (

@@ -3,15 +3,17 @@
 python /app/preparation/city_from_openweather.py
 python /app/preparation/data_from_kaggle.py
 
-python /app/preparation/train_model.py
-timeout=500
-while [ ! -f /app/model/model.joblib ]; do
-    sleep 30
-    timeout=$((timeout - 10))
-    if [ $timeout -le 0 ]; then
-        exit 1
-    fi
-done
+if [ ! -f /app/model/model.joblib ]; then
+    python /app/preparation/train_model.py
+    timeout=500
+    while [ ! -f /app/model/model.joblib ]; do
+        sleep 30
+        timeout=$((timeout - 10))
+        if [ $timeout -le 0 ]; then
+            exit 1
+        fi
+    done
+fi
 
 python /app/preparation/data_from_web_scrapping.py
 

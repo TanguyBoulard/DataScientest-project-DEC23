@@ -2,6 +2,8 @@
 
 
 import os
+from typing import Dict, Any, List
+
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from dotenv import load_dotenv
@@ -42,6 +44,22 @@ class MongoDBManager:
         collection = self.db[collection_name]
         document_id = collection.insert_one(document).inserted_id
         return document_id
+
+    def safe_insert_document(self, collection_name: str, document: Dict[str, Any],
+                             unique_fields: List[str]) -> bool:
+        """
+        Safely insert a document into a collection or update it if it already exists.
+        """
+        collection = self.db[collection_name]
+
+        # Create a query based on the unique fields
+        query = {field: document[field] for field in unique_fields if field in document}
+
+        # Use update_one with upsert=True
+        result = collection.update_one(query, {'$set': document}, upsert=True)
+
+        # Return True if a new document was inserted, False if an existing document was updated
+        return result.upserted_id is not None
 
     def find_document(self, collection_name, query):
         """ Find a document in a collection """

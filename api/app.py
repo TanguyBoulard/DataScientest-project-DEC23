@@ -202,12 +202,8 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
 
         if not weather_data:
             # If not in cache, fetch from database
-            weather_data_df = pd.read_sql_query(
-                'SELECT * '
-                'FROM australian_meteorology_weather '
-                f"WHERE location = '{city}' AND date = '{previous_day}';",
-                postgres_manager.engine).drop(columns=['id', 'date'])
-
+            result = postgres_manager.fetch_weather_data_for_city_and_date(city, previous_day)
+            weather_data_df = pd.DataFrame([{c.name: getattr(obj, c.name) for c in obj.__table__.columns} for obj in result])
             if weather_data_df.empty:
                 raise HTTPException(status_code=404, detail=f"No weather data found for {city} on {previous_day}.")
 

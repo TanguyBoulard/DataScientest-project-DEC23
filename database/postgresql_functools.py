@@ -1,9 +1,11 @@
 """ Data warehouse """
 
 import os
+from typing import Type, Dict, Any
 
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, \
-    Float, Date, Time, DateTime, func, text
+    Float, Date, Time, DateTime, func, text, UniqueConstraint
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
@@ -156,8 +158,10 @@ class City(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     country = Column(String)
-    latitude = Column(Float, nullable=False, unique=True)
-    longitude = Column(Float, nullable=False, unique=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+
+    __table_args__ = (UniqueConstraint('latitude', 'longitude', name='uix_lat_long'),)
 
     def __repr__(self):
         return (f"<City(Name={self.name},"
@@ -207,6 +211,37 @@ class PostgresManager:
         self.session.add(record)
         self.session.commit()
 
+    def safe_insert(self, model: Type[Base], data: Dict[str, Any]) -> bool:
+        """
+        Safely insert data into the specified model's table.
+        If a record with the same unique constraints already exists, it won't be inserted.
+        """
+        try:
+            if model == City:
+                existing = self.session.query(City).filter_by(
+                    latitude=data['latitude'], longitude=data['longitude']
+                ).first()
+            elif model == AustralianMeteorologyWeather:
+                existing = self.session.query(AustralianMeteorologyWeather).filter_by(
+                    date=data['date'], location=data['location']
+                ).first()
+            else:
+                raise ValueError('Unsupported model for safe insert')
+
+            if existing:
+                return False
+
+            new_record = model(**data)
+            self.session.add(new_record)
+            self.session.commit()
+            return True
+        except IntegrityError:
+            self.session.rollback()
+            return False
+        except Exception as e:
+            self.session.rollback()
+            raise e
+
     def fetch_record(self, model, query):
         """ Fetch a record from a table """
         return self.session.query(model).filter_by(**query).first()
@@ -227,11 +262,19 @@ class PostgresManager:
                 .first())
 
     def fetch_weather_data(self, city: str, start_date: str, end_date: str):
-        """Fetch weather data for a specific city and date range"""
+        """Fetch weather data for a specific city and date range  from the australian_meteorology_weather table"""
         return self.session.query(AustralianMeteorologyWeather).filter(
             AustralianMeteorologyWeather.location == city,
             AustralianMeteorologyWeather.date.between(start_date, end_date)
         ).order_by(AustralianMeteorologyWeather.date).all()
+
+    def fetch_weather_data_for_city_and_date(self, city: str, date: str):
+        """
+        Fetch weather data for a specific city and date from the australian_meteorology_weather table.
+        """
+        return self.session.query(AustralianMeteorologyWeather).filter(
+            AustralianMeteorologyWeather.location == city,
+            AustralianMeteorologyWeather.date == date).all()
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ class OpenWeatherAPI(ABC):
             'appid': self.api_key, 'lang': 'en'
         }
         self.collection_name: str = ''
+        self.unique_fields: List[str] = []
         self.table_name = Base
 
     def url_builder(self) -> str:
@@ -66,7 +67,7 @@ class OpenWeatherAPI(ABC):
 
         :param data: The structured data to be loaded.
         """
-        self.datalake_manager.insert_document(self.collection_name, data)
+        self.datalake_manager.safe_insert_document(self.collection_name, data, self.unique_fields)
 
     def load_to_data_warehouse(self, data: Dict):
         """
@@ -74,7 +75,10 @@ class OpenWeatherAPI(ABC):
 
         :param data: The structured data to be loaded.
         """
-        self.data_warehouse_manager.add_record(self.table_name(**data))
+        try:
+            self.data_warehouse_manager.safe_insert(self.table_name, data)
+        except Exception as e:
+            raise e
 
 
 class OpenWeatherCity(OpenWeatherAPI):
@@ -88,6 +92,7 @@ class OpenWeatherCity(OpenWeatherAPI):
         self.endpoint = 'geo/1.0/direct'
         self.params['limit'] = '1'
         self.collection_name = 'city'
+        self.unique_fields = ['lat', 'lon']
         self.table_name = City
 
     def extract_data(self) -> List[Dict]:
