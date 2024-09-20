@@ -30,6 +30,7 @@ def load_data(postgres: PostgresManager) -> pd.DataFrame:
     df = pd.read_sql_table('australian_meteorology_weather', postgres.engine)
     df = df.drop(columns=['id'])
     df = df.drop_duplicates()
+    df.columns = [str(col) for col in df.columns]
     return df
 
 
@@ -118,13 +119,11 @@ def save_model(ser_obj: Any, path: str, redis_manager: RedisManager, redis_key: 
     """
     try:
         joblib.dump(ser_obj, path)
-        print(f"Model/Encoder saved to {path}")
 
         try:
             redis_manager.set_serializable_object(redis_key, ser_obj, expiration=86400)
-            print(f"Model/Encoder saved to Redis with key: {redis_key}")
         except Exception as e:
-            print(f"An error occurred while saving to Redis: {str(e)}")
+            raise Exception(f"An error occurred while saving to Redis: {str(e)}")
 
     except Exception as e:
         raise Exception(f"An error occurred while saving: {str(e)}")
@@ -145,20 +144,20 @@ def train_model() -> None:
     df = load_data(postgres)
     df = preprocess_data(df)
 
+    # Prepare data for training
+    X = df.drop(['rain_tomorrow', 'date'], axis=1)
+    y = df['rain_tomorrow']
+
     # Get column types
-    numerical_columns, categorical_columns = get_column_types(df)
+    numerical_columns, categorical_columns = get_column_types(X)
 
     # Create preprocessor and model pipeline
     preprocessor = create_preprocessor(numerical_columns, categorical_columns)
     pipeline = create_model_pipeline(preprocessor)
 
-    # Prepare data for training
-    X = df.drop(['rain_tomorrow', 'date'], axis=1)
-    y = df['rain_tomorrow']
-
     # Encode target variable
     target_le = LabelEncoder()
-    y = target_le.fit_transform(y)
+    y = pd.Series(target_le.fit_transform(y))
 
     # Train model
     pipeline.fit(X, y)

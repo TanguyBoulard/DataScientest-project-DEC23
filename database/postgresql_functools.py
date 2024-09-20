@@ -226,7 +226,7 @@ class PostgresManager:
                     date=data['date'], location=data['location']
                 ).first()
             else:
-                raise ValueError('Unsupported model for safe insert')
+                existing = False
 
             if existing:
                 return False

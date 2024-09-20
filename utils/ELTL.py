@@ -67,7 +67,10 @@ class OpenWeatherAPI(ABC):
 
         :param data: The structured data to be loaded.
         """
-        self.datalake_manager.safe_insert_document(self.collection_name, data, self.unique_fields)
+        try:
+            self.datalake_manager.safe_insert_document(self.collection_name, data, self.unique_fields)
+        except Exception as e:
+            raise e
 
     def load_to_data_warehouse(self, data: Dict):
         """
