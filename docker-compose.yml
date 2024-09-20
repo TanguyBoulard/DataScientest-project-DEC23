@@ -9,7 +9,6 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 120
     AIRFLOW_UID: "${AIRFLOW_UID}"
     AIRFLOW_GID: "${AIRFLOW_GID}"
-    TZ: Australia/Sydney
     PYTHONPATH: /opt/airflow
     OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
     MONGO_USER: ${MONGO_USER}
