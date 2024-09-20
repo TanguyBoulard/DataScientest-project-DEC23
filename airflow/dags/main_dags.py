@@ -10,6 +10,9 @@ default_args = {
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=1),
+    'timezone': 'Australia/Sydney',
+    'start_date': datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
+    'catchup': False,
 }
 
 
@@ -39,8 +42,6 @@ with DAG(
     default_args=default_args,
     description='A DAG to retrain the model',
     schedule_interval='0 0 1 * *',
-    start_date=datetime(2024, 9, 10),
-    catchup=False,
 ) as dag_model_monthly:
     retrain_model_task = PythonOperator(
         task_id='retrain_model',
@@ -55,8 +56,6 @@ with DAG(
     default_args=default_args,
     description='A DAG to scrape weather data monthly and retrain the model',
     schedule_interval='0 0 1 * *',
-    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
-    catchup=False,
 ) as dag_monthly:
     scrape_weather_data_task = PythonOperator(
         task_id='scrape_weather_data',
@@ -76,8 +75,6 @@ with DAG(
     default_args=default_args,
     description='A DAG to run the weather data pipeline daily',
     schedule_interval='0 0 * * *',
-    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
-    catchup=False,
 ) as dag_daily:
 
     run_daily_weather_pipeline_task = PythonOperator(
@@ -93,8 +90,6 @@ with DAG(
     default_args=default_args,
     description='A DAG to run the weather data pipeline hourly',
     schedule_interval='0 9,15 * * *',
-    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
-    catchup=False,
 ) as dag_hourly:
 
     run_hour_weather_pipeline_task = PythonOperator(
@@ -110,8 +105,6 @@ with DAG(
     default_args=default_args,
     description='A DAG to run the weather data pipeline minutely',
     schedule_interval='* * * * *',
-    start_date=datetime(2024, 9, 10, tzinfo=timezone('Australia/Sydney')),
-    catchup=False,
 ) as dag_minutely:
 
     run_minutely_weather_pipeline_task = PythonOperator(
