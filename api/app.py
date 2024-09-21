@@ -224,10 +224,10 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
             try:
                 if model is None:
                     model = joblib.load(model_path)
-                    redis_manager.set_model('weather_prediction_model', model, expiration=86400)
+                    redis_manager.set_serializable_object('weather_prediction_model', model, expiration=86400)
                 if target_label_encoder is None:
                     target_label_encoder = joblib.load(label_encoder_path)
-                    redis_manager.set_model('weather_label_encoder', target_label_encoder, expiration=86400)
+                    redis_manager.set_serializable_object('weather_label_encoder', target_label_encoder, expiration=86400)
             except FileNotFoundError:
                 raise HTTPException(status_code=500, detail='Model or label encoder file not found. Please ensure the model is trained.')
 
