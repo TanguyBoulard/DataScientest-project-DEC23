@@ -1,22 +1,22 @@
+import base64
+import hashlib
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-import hashlib
-import base64
 
 import joblib
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.responses import PlainTextResponse
 
+from api.dash_app import dash_app
 from database.mongodb_functools import MongoDBManager
 from database.postgresql_functools import PostgresManager, City, APIUsers
-from api.dash_app import dash_app
 from database.redis_functools import RedisManager
 
 load_dotenv()
@@ -100,9 +100,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 async def health_check():
     try:
         # Check database connection
-        assert(postgres_manager.health_check())
-        assert(mongo_manager.health_check())
-        assert(redis_manager.health_check())
+        assert postgres_manager.health_check()
+        assert mongo_manager.health_check()
+        assert redis_manager.health_check()
         return 'OK'
     except Exception:
         raise HTTPException(status_code=503, detail='Service Unavailable')
@@ -174,7 +174,8 @@ async def get_weather(city: str, start_date: str, end_date: str):
     } for row in results]
 
     if not weather_data:
-        raise HTTPException(status_code=404, detail=f"No weather data found for {city} between {start_date} and {end_date}")
+        raise HTTPException(status_code=404,
+                            detail=f"No weather data found for {city} between {start_date} and {end_date}")
 
     # Cache the result in Redis
     redis_manager.set(cache_key, weather_data, expiration=3600)
@@ -203,9 +204,11 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
         if not weather_data:
             # If not in cache, fetch from database
             result = postgres_manager.fetch_weather_data_for_city_and_date(city, previous_day)
-            weather_data_df = pd.DataFrame([{c.name: getattr(obj, c.name) for c in obj.__table__.columns} for obj in result])
+            weather_data_df = pd.DataFrame(
+                [{c.name: getattr(obj, c.name) for c in obj.__table__.columns} for obj in result])
             if weather_data_df.empty:
-                raise HTTPException(status_code=404, detail=f"No weather data found for {city} on {previous_day}.")
+                raise HTTPException(status_code=404,
+                                    detail=f"No weather data found for {city} on {previous_day}.")
 
             weather_data = weather_data_df.to_dict('records')[0]
             redis_manager.set(cache_key, weather_data, expiration=3600)
@@ -224,12 +227,15 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
             try:
                 if model is None:
                     model = joblib.load(model_path)
-                    redis_manager.set_serializable_object('weather_prediction_model', model, expiration=86400)
+                    redis_manager.set_serializable_object('weather_prediction_model', model,
+                                                          expiration=86400)
                 if target_label_encoder is None:
                     target_label_encoder = joblib.load(label_encoder_path)
-                    redis_manager.set_serializable_object('weather_label_encoder', target_label_encoder, expiration=86400)
+                    redis_manager.set_serializable_object('weather_label_encoder',
+                                                          target_label_encoder, expiration=86400)
             except FileNotFoundError:
-                raise HTTPException(status_code=500, detail='Model or label encoder file not found. Please ensure the model is trained.')
+                raise HTTPException(status_code=500,
+                                    detail='Model or label encoder file not found. Please ensure the model is trained.')
 
         # Make prediction
         prediction = model.predict(prediction_data)

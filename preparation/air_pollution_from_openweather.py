@@ -6,7 +6,7 @@ from utils.ELTL import OpenWeatherDailyAirPollution
 
 def date_to_timestamp(date_str):
     dt = datetime.strptime(date_str, "%Y-%m-%d") \
-          .replace(hour=0)
+        .replace(hour=0)
 
     timestamp = int(dt.timestamp())
     return timestamp

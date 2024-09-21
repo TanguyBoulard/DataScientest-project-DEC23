@@ -1,11 +1,10 @@
 import io
+import json
 import os
+from typing import Any, Optional
 
 import joblib
 import redis
-import json
-from typing import Any, Optional
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -54,6 +53,7 @@ class RedisManager:
         if obj_bytes is None:
             return None
         return joblib.load(io.BytesIO(obj_bytes))
+
 
 if __name__ == '__main__':
     redis_manager = RedisManager()

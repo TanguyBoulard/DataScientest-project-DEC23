@@ -17,3 +17,5 @@ SQLAlchemy
 uvicorn
 imblearn
 redis
+matplotlib
+seaborn

@@ -2,16 +2,17 @@
 This script is used to scrape the Australian Bureau of Meteorology website
 """
 
-import numpy as np
-from dotenv import load_dotenv
-from itertools import product
 import re
-from typing import Optional, Tuple
-import requests
 from datetime import datetime, timedelta
+from itertools import product
 from typing import List
+from typing import Optional, Tuple
+
+import numpy as np
 import pandas as pd
+import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 from database.postgresql_functools import PostgresManager
 from utils.df_to_kaggle_format import transform_to_kaggle_format

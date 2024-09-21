@@ -1,12 +1,12 @@
 import os
 import time
-import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
-import plotly.graph_objs as go
-import pandas as pd
 from datetime import datetime, timedelta
 
+import dash
+import pandas as pd
+import plotly.graph_objs as go
+from dash import dcc, html
+from dash.dependencies import Input, Output
 from dotenv import load_dotenv
 from requests import RequestException
 

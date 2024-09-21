@@ -1,9 +1,10 @@
-from dotenv import load_dotenv
 import os
 from pathlib import Path
-import pandas as pd
-from database.postgresql_functools import PostgresManager
 
+import pandas as pd
+from dotenv import load_dotenv
+
+from database.postgresql_functools import PostgresManager
 
 if __name__ == '__main__':
     load_dotenv()

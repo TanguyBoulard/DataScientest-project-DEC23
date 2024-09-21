@@ -1,8 +1,9 @@
 import os
+from datetime import datetime
 from typing import Dict
+
 import requests
 from dotenv import load_dotenv
-from datetime import datetime
 
 
 def get_token(base_url: str, username: str, password: str) -> str:
@@ -24,7 +25,7 @@ def get_token(base_url: str, username: str, password: str) -> str:
         raise Exception(f"Failed to get token: {response.status_code} - {response.text}")
 
 
-def get_data(base_url:str, endpoint: str, token: str, params: Dict[str, str]) -> Dict:
+def get_data(base_url: str, endpoint: str, token: str, params: Dict[str, str]) -> Dict:
     """
     Get data from the API
 

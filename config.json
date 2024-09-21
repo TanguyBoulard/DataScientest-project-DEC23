@@ -1,4 +1,10 @@
 {
-    "locations": ["Canberra", "Sydney", "Darwin", "Melbourne", "Brisbane City"],
-    "country_code": "AU"
+  "locations": [
+    "Canberra",
+    "Sydney",
+    "Darwin",
+    "Melbourne",
+    "Brisbane City"
+  ],
+  "country_code": "AU"
 }

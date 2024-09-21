@@ -1,18 +1,16 @@
 import os
+import warnings
 from typing import Tuple, List, Any
 
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
 from dotenv import load_dotenv
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
-from imblearn.over_sampling import RandomOverSampler
-from imblearn.pipeline import Pipeline as ImbPipeline
-import warnings
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 
 from database.postgresql_functools import PostgresManager
 from database.redis_functools import RedisManager
@@ -87,22 +85,20 @@ def create_preprocessor(numerical_columns: List[str],
     return preprocessor
 
 
-def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
+def create_model_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
     """
-    Create the full model pipeline including preprocessor, oversampler, and classifier.
+    Create the full model pipeline including preprocessor and classifier.
 
     :param preprocessor: Preprocessor for the data.
     :return: Full model pipeline.
     """
-    return ImbPipeline([
+    return Pipeline([
         ('preprocessor', preprocessor),
-        ('oversampler', RandomOverSampler(random_state=42)),
-        ('classifier', RandomForestClassifier(
-            max_depth=None,
-            min_samples_leaf=4,
-            min_samples_split=9,
-            n_estimators=161,
-            random_state=42
+        ('classifier', LogisticRegression(
+            C=1.1323779547027075,
+            max_iter=2000,
+            penalty='l2',
+            solver='lbfgs'
         ))
     ])
 

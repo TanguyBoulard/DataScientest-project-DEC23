@@ -3,11 +3,11 @@
 import os
 from typing import Type, Dict, Any
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, \
     Float, Date, Time, DateTime, func, text, UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -185,6 +185,7 @@ class APIUsers(Base):
 
 class PostgresManager:
     """ Postgres Manager class """
+
     def __init__(self):
         self.user = os.getenv('PG_USER')
         self.password = os.getenv('PG_PASSWORD')

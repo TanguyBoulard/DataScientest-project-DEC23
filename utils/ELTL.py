@@ -68,7 +68,8 @@ class OpenWeatherAPI(ABC):
         :param data: The structured data to be loaded.
         """
         try:
-            self.datalake_manager.safe_insert_document(self.collection_name, data, self.unique_fields)
+            self.datalake_manager.safe_insert_document(self.collection_name, data,
+                                                       self.unique_fields)
         except Exception as e:
             raise e
 
@@ -157,23 +158,23 @@ class OpenWeatherCurrentWeather(OpenWeatherByCities):
 
     def transform_data(self, data: Dict) -> Dict:
         return {
-                'date': build_date_timestamp(timestamp=data['dt'],
-                                             timezone=data['timezone'],
-                                             mode='datetime'),
-                'temp': data['main']['temp'],
-                'sunrise': build_date_timestamp(timestamp=data['sys']['sunrise'],
-                                                timezone=data['timezone'],
-                                                mode='hours'),
-                'sunset': build_date_timestamp(timestamp=data['sys']['sunset'],
-                                               timezone=data['timezone'],
-                                               mode='hours'),
-                'wind_dir': deg_to_cardinal(data['wind']['deg']),
-                'wind_speed': data['wind']['speed'],
-                'cloud': data['clouds']['all'],
-                'humidity': data['main']['humidity'],
-                'pressure': data['main']['pressure'],
-                'city_id': self.get_city_id(data['coord']['lat'], data['coord']['lon'])
-            }
+            'date': build_date_timestamp(timestamp=data['dt'],
+                                         timezone=data['timezone'],
+                                         mode='datetime'),
+            'temp': data['main']['temp'],
+            'sunrise': build_date_timestamp(timestamp=data['sys']['sunrise'],
+                                            timezone=data['timezone'],
+                                            mode='hours'),
+            'sunset': build_date_timestamp(timestamp=data['sys']['sunset'],
+                                           timezone=data['timezone'],
+                                           mode='hours'),
+            'wind_dir': deg_to_cardinal(data['wind']['deg']),
+            'wind_speed': data['wind']['speed'],
+            'cloud': data['clouds']['all'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'city_id': self.get_city_id(data['coord']['lat'], data['coord']['lon'])
+        }
 
 
 class OpenWeatherHourWeather(OpenWeatherByCities):
@@ -185,23 +186,23 @@ class OpenWeatherHourWeather(OpenWeatherByCities):
 
     def transform_data(self, data: Dict) -> Dict:
         return {
-                'date': build_date_timestamp(timestamp=data['dt'],
-                                             timezone=data['timezone'],
-                                             mode='datehours'),
-                'temp': data['main']['temp'],
-                'sunrise': build_date_timestamp(timestamp=data['sys']['sunrise'],
-                                                timezone=data['timezone'],
-                                                mode='hours'),
-                'sunset': build_date_timestamp(timestamp=data['sys']['sunset'],
-                                               timezone=data['timezone'],
-                                               mode='hours'),
-                'wind_dir': deg_to_cardinal(data['wind']['deg']),
-                'wind_speed': data['wind']['speed'],
-                'cloud': data['clouds']['all'],
-                'humidity': data['main']['humidity'],
-                'pressure': data['main']['pressure'],
-                'city_id': self.get_city_id(data['coord']['lat'], data['coord']['lon'])
-            }
+            'date': build_date_timestamp(timestamp=data['dt'],
+                                         timezone=data['timezone'],
+                                         mode='datehours'),
+            'temp': data['main']['temp'],
+            'sunrise': build_date_timestamp(timestamp=data['sys']['sunrise'],
+                                            timezone=data['timezone'],
+                                            mode='hours'),
+            'sunset': build_date_timestamp(timestamp=data['sys']['sunset'],
+                                           timezone=data['timezone'],
+                                           mode='hours'),
+            'wind_dir': deg_to_cardinal(data['wind']['deg']),
+            'wind_speed': data['wind']['speed'],
+            'cloud': data['clouds']['all'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'city_id': self.get_city_id(data['coord']['lat'], data['coord']['lon'])
+        }
 
 
 class OpenWeatherDailyWeather(OpenWeatherByCities):

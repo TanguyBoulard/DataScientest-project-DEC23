@@ -1,18 +1,18 @@
 """ Datalake """
 
-
 import os
 from typing import Dict, Any, List
 
+from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
-from dotenv import load_dotenv
 
 load_dotenv()
 
 
 class MongoDBManager:
     """ MongoDB Manager class """
+
     def __init__(self):
         self.user = os.getenv('MONGO_USER')
         self.password = os.getenv('MONGO_PASSWORD')
