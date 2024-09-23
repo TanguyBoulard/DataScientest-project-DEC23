@@ -15,5 +15,5 @@ COPY ./utils /app/utils
 ENV PYTHONPATH=/app
 ENV ROOT_PATH=/app
 
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY ./api/start.sh /app/api/start.sh
+RUN chmod +x /app/api/start.sh

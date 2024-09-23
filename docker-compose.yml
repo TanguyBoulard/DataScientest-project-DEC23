@@ -117,11 +117,53 @@ services:
       retries: 5
     restart: always
 
+  init:
+    image: python:3.11
+    container_name: init
+    working_dir: /app
+    environment:
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PG_HOST: postgres
+      PG_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      PYTHONPATH: /app
+      ROOT_PATH: /app
+    volumes:
+      - ./database:/app/database
+      - ./model:/app/model
+      - ./data/csv/weatherAUS.csv:/app/data/csv/weatherAUS.csv
+      - ./config.json:/app/config.json
+      - ./preparation:/app/preparation
+      - ./data_pipeline:/app/data_pipeline
+      - ./utils:/app/utils
+      - ./requirements.txt:/app/requirements.txt
+      - ./init.sh:/app/init.sh
+    command: bash -c "pip install --no-cache-dir -r ./requirements.txt && chmod +x ./init.sh && ./init.sh"
+    restart: on-failure
+    depends_on:
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
   fastapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: python:3.11
     container_name: fastapi
+    working_dir: /app
     environment:
       API_USER: ${API_USER}
       API_PASSWORD: ${API_PASSWORD}
@@ -143,13 +185,20 @@ services:
       MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
       MONGO_HOST: mongo
       MONGO_PORT: 27017
+      PYTHONPATH: /app
+      ROOT_PATH: /app
     ports:
       - "${API_PORT}:8000"
     volumes:
       - ./database:/app/database
       - ./api:/app/api
       - ./model:/app/model
-    entrypoint: /app/start.sh
+      - ./config.json:/app/config.json
+      - ./preparation:/app/preparation
+      - ./data_pipeline:/app/data_pipeline
+      - ./utils:/app/utils
+      - ./requirements.txt:/app/requirements.txt
+    command: bash -c "pip install --no-cache-dir -r ./requirements.txt && chmod +x ./api/start.sh && ./api/start.sh"
     healthcheck:
       test: [ "CMD", "python", "-c", "import requests; exit(0) if requests.get('http://localhost:8000/health').text == 'OK' else exit(1)" ]
       interval: 30s
@@ -169,7 +218,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    command: bash -c "pip install -r /requirements.txt && airflow webserver"
+    command: bash -c "chmod -R 777 model/ && pip install -r /requirements.txt && airflow webserver"
     environment:
       <<: *airflow-common-env
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
@@ -187,7 +236,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    command: bash -c "pip install -r /requirements.txt && airflow scheduler"
+    command: bash -c "chmod -R 777 model/ && pip install -r /requirements.txt && airflow scheduler"
     healthcheck:
       test: [ "CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\"" ]
       interval: 10s
