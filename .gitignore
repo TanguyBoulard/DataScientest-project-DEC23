@@ -12,5 +12,3 @@ venv/
 /database/redis_data/
 /airflow/logs/*
 !/airflow/logs/.gitkeep
-/model/*
-!/model/.gitkeep

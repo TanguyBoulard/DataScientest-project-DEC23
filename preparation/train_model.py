@@ -1,5 +1,6 @@
 import os
 import warnings
+from pathlib import Path
 from typing import Tuple, List, Any
 
 import joblib
@@ -8,7 +9,9 @@ import pandas as pd
 from dotenv import load_dotenv
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 
@@ -85,20 +88,21 @@ def create_preprocessor(numerical_columns: List[str],
     return preprocessor
 
 
-def create_model_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
+def create_model_pipeline(preprocessor: ColumnTransformer) -> ImbPipeline:
     """
     Create the full model pipeline including preprocessor and classifier.
 
     :param preprocessor: Preprocessor for the data.
     :return: Full model pipeline.
     """
-    return Pipeline([
+    return ImbPipeline([
         ('preprocessor', preprocessor),
-        ('classifier', LogisticRegression(
-            C=1.1323779547027075,
-            max_iter=2000,
-            penalty='l2',
-            solver='lbfgs'
+        ('sampler', RandomOverSampler()),
+        ('classifier', RandomForestClassifier(
+            max_depth=None,
+            min_samples_leaf=4,
+            min_samples_split=9,
+            n_estimators=161
         ))
     ])
 
@@ -130,7 +134,7 @@ def train_model() -> None:
     Main function to orchestrate the model training process.
     """
     load_dotenv()
-    root_path = os.getenv('ROOT_PATH')
+    root_path = os.getenv('ROOT_PATH', Path(__file__).resolve().parents[1])
 
     # Database connection
     postgres = PostgresManager()
@@ -159,10 +163,10 @@ def train_model() -> None:
     pipeline.fit(X, y)
 
     # Save the label encoder and the model
-    label_path = os.path.join(root_path, 'model', 'label_encoder.joblib')
+    label_path = os.path.join(root_path, 'model', 'weather_label_encoder.joblib')
     save_model(target_le, label_path, redis, 'weather_label_encoder')
 
-    model_path = os.path.join(root_path, 'model', 'weather_model.joblib')
+    model_path = os.path.join(root_path, 'model', 'weather_prediction_model.joblib')
     save_model(pipeline, model_path, redis, 'weather_prediction_model')
 
 
