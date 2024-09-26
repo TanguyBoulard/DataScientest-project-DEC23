@@ -198,6 +198,7 @@ services:
       - ./data_pipeline:/app/data_pipeline
       - ./utils:/app/utils
       - ./requirements.txt:/app/requirements.txt
+      - ./tests:/app/tests
     command: bash -c "pip install --no-cache-dir -r ./requirements.txt && chmod +x ./api/start.sh && ./api/start.sh"
     healthcheck:
       test: [ "CMD", "python", "-c", "import requests; exit(0) if requests.get('http://localhost:8000/health').text == 'OK' else exit(1)" ]
@@ -218,7 +219,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    command: bash -c "chmod -R 777 model/ && pip install -r /requirements.txt && airflow webserver"
+    command: bash -c "pip install -r /requirements.txt && airflow webserver"
     environment:
       <<: *airflow-common-env
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
@@ -236,7 +237,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    command: bash -c "chmod -R 777 model/ && pip install -r /requirements.txt && airflow scheduler"
+    command: bash -c "pip install -r /requirements.txt && airflow scheduler"
     healthcheck:
       test: [ "CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\"" ]
       interval: 10s

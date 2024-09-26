@@ -222,8 +222,8 @@ async def predict_rain(date: str, city: str, current_user: User = Depends(get_cu
         target_label_encoder = redis_manager.get_serializable_object('weather_label_encoder')
 
         if model is None or target_label_encoder is None:
-            model_path = os.path.join(root_path, 'model', 'weather_model.joblib')
-            label_encoder_path = os.path.join(root_path, 'model', 'label_encoder.joblib')
+            model_path = os.path.join(root_path, 'model', 'weather_prediction_model.joblib')
+            label_encoder_path = os.path.join(root_path, 'model', 'weather_label_encoder.joblib')
             try:
                 if model is None:
                     model = joblib.load(model_path)
