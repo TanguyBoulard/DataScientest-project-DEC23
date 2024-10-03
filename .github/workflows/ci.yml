@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration_test:
+    runs-on: ubuntu-latest
+    environment: api_keys
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Setup environment
+      env:
+        OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      run: |
+        chmod -R 777 ./
+        chmod +x .github/workflows/check_services.sh
+        chmod +x generate_var_env.sh
+        ./generate_var_env.sh
+        sed -i "s/OPENWEATHER_API_KEY=.*/OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY/" .env
+
+    - name: Start all services
+      run: docker-compose up -d
+
+    - name: Wait for services to be ready
+      run: |
+        ./.github/workflows/check_services.sh
+
+    - name: Run Integration tests
+      run: |
+        docker-compose exec -T fastapi python -m unittest discover tests
+
+    - name: Stop containers
+      if: always()
+      run: docker-compose down
