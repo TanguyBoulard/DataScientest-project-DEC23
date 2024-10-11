@@ -2,7 +2,7 @@ x-airflow-common: &airflow-common
   image: apache/airflow:latest
   environment: &airflow-common-env
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_ADMIN_USER}:${AIRFLOW_ADMIN_PASSWORD}@postgres/${AIRFLOW_DB}
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
@@ -217,6 +217,49 @@ services:
     networks:
       - backend
 
+  airflow-init:
+      <<: *airflow-common
+      entrypoint: /bin/bash
+      command:
+        - -c
+        - |
+          airflow db init \
+          && \
+          airflow users create \
+            --username ${AIRFLOW_ADMIN_USER} \
+            --password ${AIRFLOW_ADMIN_PASSWORD} \
+            --firstname Admin \
+            --lastname Admin \
+            --role Admin \
+            --email admin@example.org \
+          && \
+          airflow users create \
+            --username ${AIRFLOW_USER} \
+            --password ${AIRFLOW_PASSWORD} \
+            --firstname User \
+            --lastname User \
+            --role Public \
+            --email user@example.org
+      environment:
+        <<: *airflow-common-env
+        _AIRFLOW_DB_UPGRADE: "true"
+        _AIRFLOW_WWW_USER_CREATE: "true"
+        _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+        _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      healthcheck:
+        test: [ "CMD", "airflow", "db", "check" ]
+        interval: 10s
+        timeout: 10s
+        retries: 5
+      restart: on-failure
+      depends_on:
+        postgres:
+          condition: service_healthy
+        mongo:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+
   airflow-webserver:
     <<: *airflow-common
     command: bash -c "pip install -r /requirements.txt && airflow webserver"
@@ -248,47 +291,17 @@ services:
       airflow-init:
         condition: service_healthy
 
-  airflow-init:
+  airflow-worker:
     <<: *airflow-common
-    entrypoint: /bin/bash
-    command:
-      - -c
-      - |
-        airflow db init \
-        && \
-        airflow users create \
-          --username ${AIRFLOW_ADMIN_USER} \
-          --password ${AIRFLOW_ADMIN_PASSWORD} \
-          --firstname Admin \
-          --lastname Admin \
-          --role Admin \
-          --email admin@example.org \
-        && \
-        airflow users create \
-          --username ${AIRFLOW_USER} \
-          --password ${AIRFLOW_PASSWORD} \
-          --firstname User \
-          --lastname User \
-          --role Public \
-          --email user@example.org
-    environment:
-      <<: *airflow-common-env
-      _AIRFLOW_DB_UPGRADE: "true"
-      _AIRFLOW_WWW_USER_CREATE: "true"
-      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
-      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    command: bash -c "pip install -r /requirements.txt && airflow celery worker"
     healthcheck:
-      test: [ "CMD", "airflow", "db", "check" ]
+      test: [ "CMD-SHELL", "airflow jobs check --job-type CeleryWorker --hostname \"$${HOSTNAME}\"" ]
       interval: 10s
       timeout: 10s
       retries: 5
-    restart: on-failure
+    restart: always
     depends_on:
-      postgres:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      redis:
+      airflow-init:
         condition: service_healthy
 
 volumes:

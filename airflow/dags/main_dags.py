@@ -4,6 +4,10 @@ from airflow.operators.python import PythonOperator
 from pendulum import timezone
 
 from airflow import DAG
+from data_pipeline.pipeline_manager import DataPipeline
+from utils.ELTL import OpenWeatherCurrentWeather
+
+pipeline = DataPipeline(OpenWeatherCurrentWeather())
 
 default_args = {
     'owner': 'airflow',
@@ -41,6 +45,63 @@ def run_hour_weather_pipeline_wrapper():
 def run_minutely_weather_pipeline_wrapper():
     from data_pipeline.pipeline import run_weather_pipeline
     run_weather_pipeline()
+
+
+def extract_task():
+    return pipeline.extract()
+
+
+def load_to_datalake_task(ti):
+    data = ti.xcom_pull(task_ids='extract')
+    for data_dict in data:
+        pipeline.load_to_datalake(data_dict)
+
+
+def transform_task(ti):
+    data = ti.xcom_pull(task_ids='extract')
+    transformed_data = []
+    for data_dict in data:
+        transformed_data.append(pipeline.transform(data_dict))
+    return transformed_data
+
+
+def load_to_data_warehouse_task(ti):
+    transformed_data = ti.xcom_pull(task_ids='transform')
+    pipeline.load_to_data_warehouse(transformed_data)
+
+
+# DAG for full weather data pipeline
+with DAG(
+    'full_weather_data_pipeline',
+    default_args=default_args,
+    description='Pipeline to extract, transform, and load weather data',
+    schedule_interval='* * * * *',
+) as dag:
+
+    extract = PythonOperator(
+        task_id='extract',
+        python_callable=extract_task,
+    )
+
+    load_to_datalake = PythonOperator(
+        task_id='load_to_datalake',
+        python_callable=load_to_datalake_task,
+        provide_context=True,
+    )
+
+    transform = PythonOperator(
+        task_id='transform',
+        python_callable=transform_task,
+        provide_context=True,
+    )
+
+    load_to_data_warehouse = PythonOperator(
+        task_id='load_to_data_warehouse',
+        python_callable=load_to_data_warehouse_task,
+        provide_context=True,
+    )
+
+    extract >> load_to_datalake >> transform >> load_to_data_warehouse
 
 
 # DAG for monthly model retraining
