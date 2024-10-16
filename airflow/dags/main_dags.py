@@ -17,7 +17,7 @@ default_args = {
     'retries': 1,
     'retry_delay': timedelta(minutes=1),
     'timezone': 'Australia/Sydney',
-    'start_date': datetime(2024, 12, 25, tzinfo=timezone('Australia/Sydney')),
+    'start_date': datetime(2024, 10, 28, tzinfo=timezone('Australia/Sydney')),
     'catchup': False,
 }
 

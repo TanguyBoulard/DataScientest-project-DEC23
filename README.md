@@ -139,6 +139,11 @@ The system architecture consists of several components:
 3. The machine learning model is a simple proof-of-concept and may not provide accurate predictions
    in all cases.
 4. The web scraping script may break if the structure of the website changes.
+5. Any container issues:
+   - Please run the following command:
+      ```shell
+      docker system prune -a --volumes
+      ```
 
 ## Data Sources
 

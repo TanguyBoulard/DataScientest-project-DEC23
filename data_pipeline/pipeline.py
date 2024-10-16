@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from data_pipeline.pipeline_manager import DataPipeline
 from utils.ELTL import OpenWeatherCurrentAirPollution, OpenWeatherHourWeather, \
     OpenWeatherCurrentWeather, OpenWeatherDailyWeather
@@ -19,7 +21,8 @@ def run_hour_weather_pipeline():
 
 
 def run_daily_weather_pipeline():
-    weather_manager = DataPipeline(OpenWeatherDailyWeather())
+    date = datetime.now().strftime('%Y-%m-%d')
+    weather_manager = DataPipeline(OpenWeatherDailyWeather(date))
     weather_manager.run()
 
 
