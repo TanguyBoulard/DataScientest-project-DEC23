@@ -7,6 +7,7 @@ set -euo pipefail
 # Constants
 EXAMPLE_ENV="example.env"
 OUTPUT_ENV=".env"
+VENV_DIR=".venv"
 
 # Function: install_python
 # Description: Installs Python 3 and pip on Ubuntu
@@ -19,7 +20,7 @@ install_python() {
         exit 1
     fi
     sudo apt update
-    sudo apt install -y python3 python3-pip
+    sudo apt install -y python3 python3-pip python3-venv
     sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 }
 
@@ -31,9 +32,17 @@ check_and_install_python() {
     if ! command -v python3 &> /dev/null; then
         install_python
     fi
-    PYTHON_CMD="python3"
-    # Install required Python packages
-    $PYTHON_CMD -m pip install --user cryptography
+}
+
+# Function: create_virtualenv
+# Description: Creates a Python virtual environment
+# Arguments: None
+# Returns: None
+create_virtualenv() {
+    echo "Creating Python virtual environment..."
+    python3 -m venv "$VENV_DIR"
+    source "$VENV_DIR/bin/activate"
+    pip install --no-cache-dir cryptography
 }
 
 # Function: replace_value
@@ -63,7 +72,7 @@ generate_openssl_secret() {
 # Returns:
 # string: The generated secret
 generate_python_secret() {
-    $PYTHON_CMD -c "import secrets; print(secrets.token_hex(16))"
+    python -c "import secrets; print(secrets.token_hex(16))"
 }
 
 # Function: generate_fernet_key
@@ -72,7 +81,7 @@ generate_python_secret() {
 # Returns:
 # string: The generated Fernet key
 generate_fernet_key() {
-    $PYTHON_CMD -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 }
 
 # Function: main
@@ -84,6 +93,9 @@ main() {
 
     # Check and install Python if necessary
     check_and_install_python
+
+    # Create virtual environment
+    create_virtualenv
 
     # Copy example.env to .env
     cp "$EXAMPLE_ENV" "$OUTPUT_ENV"
